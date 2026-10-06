@@ -64,6 +64,46 @@ O API Gateway foi configurado como entrada oficial, com a rota `POST /auth/cpf` 
 
 A documentacao arquitetural foi centralizada neste repositorio para reunir decisoes, diagramas, banco de dados, observabilidade e evidencias da apresentacao.
 
+## Operacao Do Ambiente AWS
+
+O ambiente academico foi operado com provisionamento manual protegido por GitHub Environments. Essa decisao evita criacao acidental de recursos pagos e preserva aprovacao humana antes de qualquer `apply`, deploy ou destroy.
+
+### Provisionamento Completo
+
+A ordem operacional para subir o ambiente em `homolog` ficou definida assim:
+
+1. `oficina-dgcar-infra-k8s`: executar `Infra K8s` com `action=apply` para criar a base de rede, EKS, ECR e API Gateway.
+2. `oficina-dgcar-infra-db`: executar `Infra DB` com `action=apply` para criar o RDS PostgreSQL usando VPC e subnets publicadas pelo repo de Kubernetes.
+3. `oficina-dgcar-auth-lambda`: executar `Auth CPF Lambda` com `action=apply-infra` para criar a Lambda, IAM, Log Group e security group.
+4. `oficina-dgcar-infra-db`: executar novo `apply` para liberar o PostgreSQL ao security group publicado pela Lambda.
+5. `oficina-dgcar-infra-k8s`: executar novo `apply` para conectar o API Gateway a Lambda na rota `POST /auth/cpf`.
+6. `oficina-dgcar-auth-lambda`: executar `Auth CPF Lambda` com `action=deploy-code` para publicar o pacote da funcao.
+7. `oficina-dgcar-api`: executar `App CI/CD - Build, Test and Deploy` com `action=deploy` para publicar a aplicacao no EKS.
+8. `oficina-dgcar-infra-k8s`: executar novo `apply` quando o `API_BACKEND_URL` da aplicacao estiver disponivel, conectando a rota proxy `ANY /{proxy+}` ao backend Kubernetes.
+
+Essa ordem respeita as dependencias entre repositorios: a Lambda precisa da rede e do banco; o banco precisa conhecer o security group da Lambda; o Gateway precisa conhecer os outputs da Lambda e o endpoint HTTP da aplicacao.
+
+### Validacao Funcional
+
+Depois do provisionamento, a validacao demonstravel usa:
+
+1. health da aplicacao no EKS;
+2. `POST /auth/cpf` com CPF e senha validos;
+3. JWT `CLIENTE` retornado pela Lambda;
+4. consulta protegida da OS por numero usando `Authorization: Bearer <accessToken>`;
+5. chamadas negativas sem token, com token invalido e com OS de outro cliente.
+
+### Teardown Completo
+
+A ordem operacional para destruir o ambiente academico ficou definida assim:
+
+1. `oficina-dgcar-api`: remover workloads da aplicacao ou executar o fluxo de deploy/limpeza disponivel para retirar pods, service e Load Balancer.
+2. `oficina-dgcar-auth-lambda`: executar destroy da infraestrutura da Lambda quando a action estiver disponivel, removendo Lambda, Log Group, IAM e security group.
+3. `oficina-dgcar-infra-k8s`: executar `Destroy Infra K8s` com `confirm_destroy=DESTROY` para remover EKS, API Gateway, ECR, VPC, subnets, rotas e recursos Kubernetes auxiliares.
+4. `oficina-dgcar-infra-db`: executar destroy do RDS PostgreSQL por ultimo, removendo a instancia, subnet group, parameter group e security group do banco.
+
+O banco fica por ultimo porque API e Lambda dependem dele durante validacoes. O repo `infra-k8s` executa limpeza especifica de Load Balancers e security groups orfaos antes de destruir a VPC, reduzindo falhas por dependencia presa na AWS.
+
 ## Fonte De Verdade
 
 Este repositorio e a fonte principal para documentacao arquitetural do Tech Challenge 3.
