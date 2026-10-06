@@ -50,23 +50,19 @@ Componentes principais:
 | Observabilidade | [docs/observabilidade](docs/observabilidade) |
 | Infraestrutura e operacao | [docs/infraestrutura](docs/infraestrutura) |
 | Evidencias e roteiro de apresentacao | [docs/evidencias](docs/evidencias) |
-| Evolucao por fase | [CHANGELOG.md](CHANGELOG.md) |
+| Evolucao do projeto | [CHANGELOG.md](CHANGELOG.md) |
 
-## Status Da Implementacao
+## Entregas Consolidadas
 
-| Item | Status |
-|---|---|
-| Separacao em quatro repositorios | Implementado |
-| Protecao de branch e Pull Requests | Implementado |
-| Terraform DB separado | Implementado |
-| Terraform K8s separado | Implementado |
-| Lambda Auth CPF + senha | Implementado |
-| API Gateway `POST /auth/cpf` | Implementado |
-| JWT externo `CLIENTE` | Implementado |
-| Validacao do JWT externo na API | Implementado |
-| Consulta de OS do cliente por numero | Implementado |
-| Observabilidade New Relic | Em organizacao |
-| Documentacao de banco e ER | Em organizacao |
+A solucao foi reorganizada em quatro repositorios tecnicos, cada um com responsabilidade clara, Pull Requests obrigatorios, branch principal protegida e environments separados para homologacao e producao.
+
+A infraestrutura foi separada em dois fluxos Terraform independentes: um para o banco PostgreSQL gerenciado e outro para Kubernetes, ECR e API Gateway. A Lambda de autenticacao externa foi implementada em repositorio proprio, com provisionamento AWS tambem descrito por Terraform.
+
+O fluxo de autenticacao externa foi entregue com CPF e senha, consulta ao PostgreSQL, validacao de hash bcrypt e emissao de JWT `CLIENTE`. A aplicacao Spring Boot valida esse JWT externo por defesa em profundidade e restringe a consulta de OS ao CPF presente no token.
+
+O API Gateway foi configurado como entrada oficial, com a rota `POST /auth/cpf` integrada a Lambda e a rota proxy encaminhando chamadas para a aplicacao no EKS. A consulta demonstravel do cliente usa o numero legivel da OS, sem expor `clienteId` como entrada externa.
+
+A documentacao arquitetural foi centralizada neste repositorio para reunir decisoes, diagramas, banco de dados, observabilidade e evidencias da apresentacao.
 
 ## Fonte De Verdade
 

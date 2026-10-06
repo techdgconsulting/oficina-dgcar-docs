@@ -1,63 +1,41 @@
-# Etapa 3 - Extração De Artefatos Do Repositório Histórico
+# Extracao De Artefatos Do Repositorio Historico
 
-## Objetivo
-
-Registrar a extração inicial dos artefatos do repositório histórico `mvp-posfiap-oficina-mecanica` para os quatro repositórios especializados do Tech Challenge 3.
+Este documento registra a distribuicao dos artefatos do repositorio historico `mvp-posfiap-oficina-mecanica` para os repositorios especializados do Tech Challenge 3.
 
 ## Commit De Origem
 
-`e18b54454a9705396fefad329edc5d8cfbc56165`
+```text
+e18b54454a9705396fefad329edc5d8cfbc56165
+```
 
-## Estratégia
+## Estrategia Executada
 
-A extração foi realizada em branches de trabalho chamadas `feature/extracao-inicial`, preservando a regra de Pull Request obrigatório configurada na branch `main` dos repositórios de destino.
-
-O repositório histórico não teve arquivos removidos ou movidos fisicamente. Ele permanece como origem histórica e fonte canônica da transição.
+A extracao preservou o repositorio historico sem remocao fisica de arquivos. Os artefatos foram copiados para branches de trabalho nos repositorios de destino, mantendo Pull Request obrigatorio para entrada na branch principal.
 
 ## Matriz Executada
 
-| Origem histórica | Destino | Situação |
+| Origem historica | Destino | Resultado |
 |---|---|---|
-| `src/**` | `oficina-dgcar-api` | Extraído |
-| `pom.xml` | `oficina-dgcar-api` | Extraído |
-| `Dockerfile` | `oficina-dgcar-api` | Extraído |
-| `docker-compose.yml` | `oficina-dgcar-api` | Extraído |
-| `api-requests.http` | `oficina-dgcar-api` | Extraído |
-| `postman/**` | `oficina-dgcar-api` | Extraído |
-| `allure-report.ps1` | `oficina-dgcar-api` | Extraído |
-| `docs/ReportOWASP/**` | `oficina-dgcar-api` | Extraído |
-| `docs/ReportTRIVY/**` | `oficina-dgcar-api` | Extraído |
-| `.github/workflows/app-cd.yml` | `oficina-dgcar-api` | Adaptado para build/test/package |
-| `k8s/**` | `oficina-dgcar-infra-k8s` | Extraído |
-| Terraform VPC/EKS/ECR/IAM | `oficina-dgcar-infra-k8s` | Separado em `terraform/**` |
-| Terraform RDS PostgreSQL | `oficina-dgcar-infra-db` | Separado em `terraform/**` |
-| `.github/workflows/infra.yml` | `oficina-dgcar-infra-k8s` e `oficina-dgcar-infra-db` | Dividido em workflows Terraform específicos |
-| ADRs/RFCs/diagramas transversais | Repositório histórico | Mantidos como fonte canônica |
+| `src/**` | `oficina-dgcar-api` | Extraido |
+| `pom.xml` | `oficina-dgcar-api` | Extraido |
+| `Dockerfile` | `oficina-dgcar-api` | Extraido |
+| `docker-compose.yml` | `oficina-dgcar-api` | Extraido |
+| `api-requests.http` | `oficina-dgcar-api` | Extraido |
+| `postman/**` | `oficina-dgcar-api` | Extraido |
+| `k8s/**` | `oficina-dgcar-infra-k8s` | Extraido |
+| Terraform EKS/ECR/API Gateway | `oficina-dgcar-infra-k8s` | Separado |
+| Terraform RDS PostgreSQL | `oficina-dgcar-infra-db` | Separado |
+| Workflow de aplicacao | `oficina-dgcar-api` | Adaptado |
+| Workflow de infraestrutura | `oficina-dgcar-infra-k8s` e `oficina-dgcar-infra-db` | Dividido |
 
-## Validações Executadas
+## Validacoes Executadas
 
-| Repositório | Validação | Resultado |
+| Repositorio | Validacao | Resultado |
 |---|---|---|
-| `oficina-dgcar-api` | `mvn test` | 363 testes, 0 falhas, build success |
-| `oficina-dgcar-infra-k8s` | `terraform fmt -check -recursive` | Sucesso |
-| `oficina-dgcar-infra-k8s` | `terraform init -backend=false && terraform validate` | Sucesso |
-| `oficina-dgcar-infra-db` | `terraform fmt -check -recursive` | Sucesso |
-| `oficina-dgcar-infra-db` | `terraform init -backend=false && terraform validate` | Sucesso |
+| `oficina-dgcar-api` | `mvn test` | Build aprovado |
+| `oficina-dgcar-infra-k8s` | `terraform fmt` e `terraform validate` | Aprovado |
+| `oficina-dgcar-infra-db` | `terraform fmt` e `terraform validate` | Aprovado |
 
-## Observações Técnicas
+## Registro De Escopo
 
-- O Terraform histórico era monolítico; a extração inicial separou os recursos em dois estados lógicos.
-- `oficina-dgcar-infra-k8s` publica outputs como `vpc_id`, `private_subnet_ids` e `eks_cluster_security_group_id`.
-- `oficina-dgcar-infra-db` consome esses valores para criar o RDS com conectividade controlada.
-- A implementação da Lambda Auth CPF permanece para a etapa seguinte.
-
-## Próximos Passos
-
-- Revisar Pull Requests das branches `feature/extracao-inicial`:
-  - `oficina-dgcar-api`: https://github.com/techdgconsulting/oficina-dgcar-api/pull/1
-  - `oficina-dgcar-infra-k8s`: https://github.com/techdgconsulting/oficina-dgcar-infra-k8s/pull/1
-  - `oficina-dgcar-infra-db`: https://github.com/techdgconsulting/oficina-dgcar-infra-db/pull/1
-  - `oficina-dgcar-auth-lambda`: https://github.com/techdgconsulting/oficina-dgcar-auth-lambda/pull/1
-- Revisar e aprovar a extração inicial.
-- Configurar secrets/variables necessários para pipelines reais.
-- Prosseguir para a implementação da Lambda Auth CPF.
+A extracao consolidou a separacao de responsabilidades entre aplicacao, Lambda, infraestrutura Kubernetes e infraestrutura de banco. ADRs, RFCs e diagramas transversais foram centralizados neste repositorio de documentacao.
