@@ -12,8 +12,8 @@ O repositório atual deve permanecer como origem histórica da evolução do pro
 
 Responsabilidade:
 
-- Lambda de autenticação por CPF.
-- Validação de CPF.
+- Lambda de autenticação por CPF e senha.
+- Validação de CPF e senha.
 - Consulta de cliente/status no PostgreSQL.
 - Emissão de JWT de cliente externo.
 - Testes automatizados.
@@ -28,7 +28,7 @@ Responsabilidade:
 - Terraform do ECR.
 - API Gateway.
 - Integração API Gateway -> aplicação no EKS.
-- Integração API Gateway -> Lambda Auth CPF, quando aplicável.
+- Integração API Gateway -> Lambda Auth CPF + Senha, quando aplicável.
 - Manifests Kubernetes ou Kustomize/Helm.
 - HPA, namespace, service, deployment base.
 - Pipeline de infraestrutura Kubernetes.
@@ -75,9 +75,9 @@ Responsabilidade:
 | `infra/**` | `oficina-dgcar-infra-k8s` e `oficina-dgcar-infra-db` | A pasta concentra Terraform de infraestrutura compartilhada, exigindo separação por responsabilidade. | Recursos de EKS, ECR, API Gateway, IAM operacional do cluster, VPC compartilhada e integrações devem ir para `oficina-dgcar-infra-k8s`; recursos de RDS PostgreSQL, subnet group, security groups específicos do banco, parâmetros e outputs do banco devem ir para `oficina-dgcar-infra-db`. |
 | `.github/workflows/app-cd.yml` | `oficina-dgcar-api` | Pipeline atual de build, testes, imagem Docker e deploy da aplicação. | Deve ser adaptada no repositório de destino para consumir outputs da infraestrutura e publicar imagem no registry definido. |
 | `.github/workflows/infra.yml` | `oficina-dgcar-infra-k8s` e `oficina-dgcar-infra-db` | Pipeline atual de Terraform deve ser dividida por escopo de infraestrutura. | O fluxo de banco deve validar/aplicar RDS e outputs; o fluxo de K8s deve validar/aplicar EKS/ECR/API Gateway/manifests. |
-| `docs/ADRS/**` | Referência central no repo histórico; cópia mínima nos quatro repositórios | ADRs registram decisões arquiteturais permanentes, muitas delas transversais. | Recomenda-se manter a fonte canônica inicialmente no repositório histórico e duplicar apenas ADRs diretamente necessárias em cada README, com link para a origem. |
-| `docs/RFCS/**` | Referência central no repo histórico; cópia mínima nos quatro repositórios | RFCs explicam decisões técnicas e propostas de evolução. | Evitar divergência por duplicação integral. Usar referências relativas no repo histórico e links remotos após criação dos repositórios. |
-| `docs/diagramas/**` | Referência central no repo histórico; cópia seletiva conforme responsabilidade | Diagramas C4, PlantUML e arquitetura cloud apoiam a visão transversal. | Diagramas específicos de API ficam com `oficina-dgcar-api`; diagramas de cloud e deploy podem ser referenciados por infra K8s e infra DB. |
+| `docs/adr/**` | Referência central no repo histórico; cópia mínima nos quatro repositórios | ADRs registram decisões arquiteturais permanentes, muitas delas transversais. | A fonte canônica foi mantida na documentação central; READMEs técnicos apontam para ela. |
+| `docs/rfc/**` | Referência central no repo histórico; cópia mínima nos quatro repositórios | RFCs explicam decisões técnicas e propostas de evolução. | A duplicação integral foi evitada; os repositórios técnicos usam links para a documentação central. |
+| `docs/arquitetura/**` | Referência central no repo histórico; cópia seletiva conforme responsabilidade | Diagramas C4, PlantUML e arquitetura cloud apoiam a visão transversal. | Diagramas específicos de API ficam com `oficina-dgcar-api`; diagramas de cloud e deploy podem ser referenciados por infra K8s e infra DB. |
 | `docs/infraestrutura/**` | Referência central no repo histórico; cópia seletiva para `oficina-dgcar-infra-k8s` e `oficina-dgcar-infra-db` | Documenta operação, HPA, infraestrutura e este plano de separação. | Este plano permanece no repo histórico como documento orientador da extração. |
 | `docs/requisitos/**` | `oficina-dgcar-api` com referência no repo histórico | Requisitos funcionais e não funcionais orientam comportamento da aplicação. | Pode ser referenciado pelos demais repositórios quando impactar autenticação, observabilidade ou infraestrutura. |
 | `docs/ReportOWASP/**` | `oficina-dgcar-api` | Evidências de DAST estão associadas à superfície HTTP da aplicação. | Pode haver referência nos READMEs de segurança dos demais repositórios. |
@@ -118,7 +118,7 @@ Responsabilidade:
 
 | Repositório | Pipeline PR | Pipeline homologação | Pipeline produção |
 |---|---|---|---|
-| `oficina-dgcar-auth-lambda` | Validar runtime, instalar dependências, executar testes, empacotar artefato e validar segurança básica. | Publicar versão em ambiente de homologação, configurar variáveis e validar endpoint de autenticação por CPF. | Publicar versão estável, atualizar alias/versão da Lambda e validar emissão de JWT. |
+| `oficina-dgcar-auth-lambda` | Validar runtime, instalar dependências, executar testes, empacotar artefato e validar segurança básica. | Publicar versão em ambiente de homologação, configurar variáveis e validar endpoint de autenticação por CPF e senha. | Publicar versão estável, atualizar alias/versão da Lambda e validar emissão de JWT. |
 | `oficina-dgcar-infra-k8s` | Executar `terraform fmt`, `terraform validate`, plano sem apply e validação dos manifests Kubernetes. | Aplicar infraestrutura de homologação, atualizar manifests base e validar conectividade com API Gateway/EKS. | Aplicar infraestrutura de produção com aprovação de environment e evidência do plano Terraform. |
 | `oficina-dgcar-infra-db` | Executar `terraform fmt`, `terraform validate` e plano sem apply para RDS, subnet group, security groups e parâmetros. | Provisionar ou atualizar banco de homologação e publicar outputs controlados. | Provisionar ou atualizar banco de produção com aprovação, backup configurado e outputs versionados. |
 | `oficina-dgcar-api` | Executar build Maven, testes, cobertura, análise de segurança e build de imagem sem deploy. | Publicar imagem, atualizar deployment em homologação e validar healthcheck/Swagger. | Publicar imagem versionada, promover release e atualizar deployment de produção com rollout controlado. |
@@ -160,6 +160,6 @@ A separação física somente deve iniciar quando:
 - A aplicação principal, seu Dockerfile, testes, Swagger/Postman e evidências de API devem compor `oficina-dgcar-api`.
 - A infraestrutura Kubernetes, EKS, ECR, API Gateway e manifests devem compor `oficina-dgcar-infra-k8s`.
 - A infraestrutura de RDS PostgreSQL deve compor `oficina-dgcar-infra-db`.
-- A autenticação externa por CPF deve ser isolada em `oficina-dgcar-auth-lambda`.
+- A autenticação externa por CPF e senha foi isolada em `oficina-dgcar-auth-lambda`.
 - A documentação arquitetural transversal deve permanecer inicialmente centralizada no repositório histórico, com cópias mínimas e links nos repositórios especializados.
 - A extração física depende de aprovação e não deve ocorrer como consequência automática deste documento.

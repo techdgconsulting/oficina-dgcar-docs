@@ -4,9 +4,9 @@ Este documento e um apoio interno de organizacao do trabalho. Ele nao representa
 
 A documentacao formal do Tech Challenge 3 esta concentrada nos seguintes artefatos:
 
-- diagrama cloud alvo em [`docs/diagramas/infra/cloud-target-architecture.puml`](../diagramas/infra/cloud-target-architecture.puml);
-- RFCs em [`docs/RFCS`](../RFCS);
-- ADRs de evolucao corporativa em [`docs/ADRS`](../ADRS), especialmente `ADR-013` a `ADR-017`;
+- diagrama cloud alvo em [`docs/arquitetura/cloud-target-architecture.puml`](../arquitetura/cloud-target-architecture.puml);
+- RFCs em [`docs/rfc`](../rfc);
+- ADRs de evolucao corporativa em [`docs/adr`](../adr), especialmente `ADR-013` a `ADR-018`;
 - requisitos atualizados em [`docs/requisitos/especificacao-requisitos.md`](../requisitos/especificacao-requisitos.md);
 - README do projeto.
 

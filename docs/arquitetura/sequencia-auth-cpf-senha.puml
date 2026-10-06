@@ -1,16 +1,17 @@
 @startuml
 actor Cliente
 participant "API Gateway" as Gateway
-participant "Lambda Auth CPF" as Lambda
+participant "Lambda Auth CPF + Senha" as Lambda
 database "RDS PostgreSQL" as DB
 
 Cliente -> Gateway: POST /auth/cpf\n{ cpf, senha }
 Gateway -> Lambda: Evento HTTP
-Lambda -> Lambda: Valida CPF
+Lambda -> Lambda: Normaliza e valida CPF
 Lambda -> DB: Consulta cliente por documento
 DB --> Lambda: id, documento, senha_hash, status
-Lambda -> Lambda: Valida senha com bcrypt
-Lambda -> Lambda: Gera JWT tipo=CLIENTE
+Lambda -> Lambda: Verifica status do cliente
+Lambda -> Lambda: Compara senha com senha_hash usando bcrypt
+Lambda -> Lambda: Gera JWT tipo=CLIENTE\nsub, clienteId, status, iat, exp
 Lambda --> Gateway: 200 { tokenType, accessToken, expiresIn }
 Gateway --> Cliente: JWT externo
 @enduml

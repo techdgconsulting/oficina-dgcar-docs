@@ -7,7 +7,7 @@
 
 ## Contexto
 
-O Tech Challenge 3 introduz autenticacao externa de clientes por CPF usando API Gateway e Lambda Auth CPF. Esse fluxo emite um JWT especifico para clientes externos, separado do JWT interno utilizado por atendentes, mecanicos e gestores.
+O Tech Challenge 3 introduz autenticacao externa de clientes por CPF e senha usando API Gateway e Lambda Auth CPF + Senha. Esse fluxo emite um JWT especifico para clientes externos, separado do JWT interno utilizado por atendentes, mecanicos e gestores.
 
 Como as rotas protegidas de cliente serao consumidas por meio do API Gateway e executadas pela aplicacao Spring Boot no EKS, e necessario definir onde o token externo sera validado.
 
@@ -37,7 +37,7 @@ A aplicacao principal devera reconhecer explicitamente tokens com claim `tipo=CL
 - O token deve possuir `sub` com CPF normalizado.
 - O token nao pode estar expirado.
 - O token de cliente nao pode carregar roles internas como `ATENDENTE`, `MECANICO` ou `GESTOR`.
-- Endpoints de cliente devem comparar o `clienteId` do token com o recurso solicitado.
+- Endpoints de cliente devem comparar o CPF do token com o recurso solicitado. Na consulta de OS, o cliente informa o numero da OS e a API valida se a ordem pertence ao CPF autenticado.
 
 ## Consequencias Positivas
 
@@ -54,7 +54,7 @@ A aplicacao principal devera reconhecer explicitamente tokens com claim `tipo=CL
 
 ## Relacao Com Outros Documentos
 
-- [`RFC-002`](../RFCS/RFC-002-autenticacao-cpf-lambda.md): autenticacao por CPF com Lambda.
+- [`RFC-002`](../rfc/RFC-002-autenticacao-cpf-lambda.md): autenticacao por CPF e senha com Lambda.
 - [`ADR-014`](./ADR-014-lambda-autenticacao-cliente-cpf.md): Lambda para autenticacao externa de cliente.
 - [`ADR-013`](./ADR-013-api-gateway-entrada-oficial.md): API Gateway como entrada oficial.
-- [`auth-cpf-sequence.puml`](../diagramas/infra/auth-cpf-sequence.puml): fluxo de autenticacao por CPF.
+- [`auth-cpf-sequence.puml`](../arquitetura/auth-cpf-sequence.puml): fluxo de autenticacao por CPF e senha.

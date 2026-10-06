@@ -81,4 +81,4 @@ Exemplo:
 
 - `RFC-004`: observabilidade com New Relic.
 - `ADR-013`: API Gateway como entrada oficial.
-- `ADR-014`: Lambda Auth CPF.
+- `ADR-014`: Lambda Auth CPF + Senha.

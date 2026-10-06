@@ -12,10 +12,19 @@ skinparam actorBackgroundColor #DAEEFF
 skinparam participantBackgroundColor #FFFFFF
 skinparam participantBorderColor #888888
 
-title Fluxo JWT com Perfis RBAC - Oficina Mecânica DGCar
+title Fluxo JWT Interno com Perfis RBAC - Oficina Mecânica DGCar
 
 actor "Usuário\n(qualquer perfil)" as usr
 actor "Cliente\n(público)" as cli
+
+note over usr, cli #EFF8EF
+  Este diagrama descreve o JWT interno usado por
+  ATENDENTE, MECANICO e GESTOR.
+
+  O JWT externo tipo CLIENTE e emitido pela Lambda
+  Auth CPF + Senha e segue fluxo proprio em
+  auth-cpf-sequence.puml e sequencia-consulta-os-cliente.puml.
+end note
 
 box "adapters/in/web" #CCF4D6
     participant "AuthController\n/api/auth/**" as auth

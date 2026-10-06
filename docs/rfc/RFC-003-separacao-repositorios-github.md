@@ -19,7 +19,7 @@ Separar o projeto em quatro repositorios:
 
 | Repositorio | Responsabilidade principal |
 |---|---|
-| `oficina-dgcar-auth-lambda` | Function Serverless de autenticacao por CPF |
+| `oficina-dgcar-auth-lambda` | Function Serverless de autenticacao por CPF e senha |
 | `oficina-dgcar-infra-k8s` | Infraestrutura Kubernetes, API Gateway, EKS, ECR, HPA e manifests |
 | `oficina-dgcar-infra-db` | Banco PostgreSQL gerenciado, rede de banco, parametros e outputs |
 | `oficina-dgcar-api` | Aplicacao principal Spring Boot executando em Kubernetes |
@@ -30,7 +30,7 @@ O plano operacional de extracao controlada, incluindo matriz de origem/destino, 
 
 ### `oficina-dgcar-auth-lambda`
 
-- Codigo da Lambda Auth CPF.
+- Codigo da Lambda Auth CPF + Senha.
 - Testes automatizados.
 - Definicao de empacotamento.
 - Pipeline de build e deploy.

@@ -4,7 +4,7 @@
 
 Este documento define os artefatos de modelagem relacional que devem ser produzidos para transformar o banco de dados da Oficina Mecânica DGCar em evidência arquitetural do Tech Challenge 3.
 
-O banco permanece PostgreSQL gerenciado em Amazon RDS, conforme [`ADR-017`](../ADRS/ADR-017-postgresql-gerenciado.md). As alterações físicas de schema devem ocorrer somente por migrations Flyway versionadas.
+O banco permanece PostgreSQL gerenciado em Amazon RDS, conforme [`ADR-017`](../adr/ADR-017-postgresql-gerenciado.md). As alterações físicas de schema devem ocorrer somente por migrations Flyway versionadas.
 
 ## Artefatos Esperados
 
@@ -53,7 +53,7 @@ O banco permanece PostgreSQL gerenciado em Amazon RDS, conforme [`ADR-017`](../A
 
 | Índice/campo | Motivo |
 |---|---|
-| `clientes.documento` | Busca por CPF/CNPJ e consulta da Lambda Auth CPF. |
+| `clientes.documento` | Busca por CPF/CNPJ e consulta da Lambda Auth CPF + Senha. |
 | `ordens_servico.status` | Filtros por etapa operacional. |
 | `ordens_servico.cliente_id` | Listagem de ordens do cliente autenticado. |
 | `ordens_servico.data_criacao` | Ordenação da fila e métricas temporais. |
@@ -65,7 +65,7 @@ O banco permanece PostgreSQL gerenciado em Amazon RDS, conforme [`ADR-017`](../A
 
 ## Avaliação Do Campo `status_cliente`
 
-A Lambda Auth CPF precisa consultar existência e status do cliente. Caso o modelo atual não possua um campo explícito para o status do cliente, deve ser avaliada uma migration com campo como:
+A Lambda Auth CPF + Senha precisa consultar existência e status do cliente. Caso o modelo atual não possua um campo explícito para o status do cliente, deve ser avaliada uma migration com campo como:
 
 ```sql
 ALTER TABLE clientes
@@ -96,7 +96,7 @@ O modelo relacional deve sustentar dashboards e métricas como:
 
 ## Critérios Para Considerar A Modelagem Fechada
 
-- Diagrama ER versionado em `docs/diagramas`.
+- Diagrama ER versionado em `docs/arquitetura`.
 - Dicionário de dados com tabelas, colunas, tipos, chaves e índices.
 - Cardinalidades documentadas.
 - Justificativa do PostgreSQL referenciada no README.

@@ -9,7 +9,7 @@
 
 A aplicacao atual e exposta em Kubernetes por meio de Service `LoadBalancer`. Para a nova fase do Tech Challenge, a arquitetura deve incluir um API Gateway para controle, roteamento e protecao das chamadas externas.
 
-O API Gateway passa a representar a borda publica da solucao, centralizando entrada de clientes externos, usuarios internos, autenticacao por CPF e chamadas para a aplicacao principal.
+O API Gateway passa a representar a borda publica da solucao, centralizando entrada de clientes externos, usuarios internos, autenticacao por CPF e senha e chamadas para a aplicacao principal.
 
 ## Decisao
 
@@ -17,7 +17,7 @@ Adotar Amazon API Gateway como entrada publica oficial da arquitetura alvo.
 
 O API Gateway devera rotear:
 
-- autenticacao por CPF para a Lambda Auth CPF;
+- autenticacao por CPF e senha para a Lambda Auth CPF + Senha;
 - autenticacao de usuarios internos para `/api/auth/login` na aplicacao principal;
 - chamadas protegidas para a aplicacao principal no EKS;
 - chamadas operacionais internas conforme politica de autenticacao e autorizacao;
@@ -29,12 +29,12 @@ Todas as chamadas externas de API entram pelo API Gateway, incluindo chamadas de
 
 | Ator | Entrada | Autenticacao | Destino |
 |---|---|---|---|
-| Cliente externo | API Gateway | Lambda Auth CPF | Lambda emite JWT de cliente |
+| Cliente externo | API Gateway | Lambda Auth CPF + Senha | Lambda emite JWT de cliente |
 | Atendente | API Gateway | `/api/auth/login` | Aplicacao principal emite JWT interno |
 | Mecanico | API Gateway | `/api/auth/login` | Aplicacao principal emite JWT interno |
 | Gestor | API Gateway | `/api/auth/login` | Aplicacao principal emite JWT interno |
 
-A Lambda Auth CPF e exclusiva para clientes externos. Usuarios internos continuam autenticando na aplicacao principal, preservando o fluxo atual de JWT e RBAC por perfil.
+A Lambda Auth CPF + Senha e exclusiva para clientes externos. Usuarios internos continuam autenticando na aplicacao principal, preservando o fluxo atual de JWT e RBAC por perfil.
 
 ## Justificativa
 
@@ -71,5 +71,5 @@ A Lambda Auth CPF e exclusiva para clientes externos. Usuarios internos continua
 ## Relacao Com Outros Documentos
 
 - `RFC-001`: escolha da AWS como cloud alvo.
-- `RFC-002`: autenticacao por CPF via Lambda.
+- `RFC-002`: autenticacao por CPF e senha via Lambda.
 - `cloud-target-architecture.puml`: diagrama cloud alvo.

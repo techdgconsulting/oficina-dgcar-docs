@@ -31,7 +31,7 @@ As proximas fases devem produzir:
 - justificativa formal de entidades e relacionamentos;
 - revisao de indices;
 - analise de consultas de fila operacional e metricas;
-- avaliacao de campo de status do cliente para autenticacao por CPF;
+- avaliacao de campo de status do cliente para autenticacao por CPF e senha;
 - documentacao de cardinalidades.
 
 ## Aspectos Operacionais
@@ -58,7 +58,7 @@ O banco gerenciado deve considerar:
 - Custo continuo em nuvem.
 - Escalabilidade horizontal do banco e mais limitada que em modelos NoSQL.
 - Exige cuidado com pool de conexoes, indices e queries.
-- A Lambda Auth CPF precisa de conectividade segura com o banco.
+- A Lambda Auth CPF + Senha precisa de conectividade segura com o banco.
 
 ## Alternativas Consideradas
 

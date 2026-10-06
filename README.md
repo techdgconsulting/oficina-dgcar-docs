@@ -20,7 +20,7 @@ Este repositorio concentra a visao arquitetural, decisoes tecnicas, diagramas, m
 Cliente externo
   -> API Gateway
   -> POST /auth/cpf
-  -> Lambda Auth CPF + senha
+  -> Lambda Auth CPF + Senha
   -> RDS PostgreSQL
   -> JWT CLIENTE
   -> API Gateway
