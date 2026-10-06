@@ -1,0 +1,137 @@
+@startuml C4_Componentes_OficinaMecanica
+!include <C4/C4_Component>
+
+LAYOUT_TOP_DOWN()
+LAYOUT_WITH_LEGEND()
+
+title Diagrama de Componentes — API Oficina Mecânica DGCar [C4 — Nível 3]
+
+' Objetivo: detalhar os componentes internos da API Spring Boot após a migração
+' para DDD, Clean Architecture e Ports and Adapters.
+
+Person(atendente, "Atendente", "Perfil ATENDENTE. Gerencia clientes, veículos, OS, orçamentos, pagamentos e entregas.")
+Person(mecanico, "Mecânico", "Perfil MECANICO. Executa diagnóstico, adiciona itens e finaliza serviços.")
+Person(gestor, "Gestor", "Perfil GESTOR. Acesso completo, incluindo cadastros, KPIs e operações administrativas.")
+Person(cliente, "Cliente", "Consulta status da OS sem login e aprova ou recusa orçamento por link público com token.")
+
+System_Ext(viacep, "ViaCEP API", "Serviço público para consulta de endereço por CEP.")
+System_Ext(gatewayExt, "Gateway de Pagamento", "Processa e autoriza pagamentos. No projeto, a integração é representada por adapter simulável.")
+System_Ext(emailCliente, "E-mail do Cliente", "Canal externo para notificações de orçamento e status da OS.")
+System_Ext(smtpServer, "Servidor SMTP", "Infraestrutura externa usada para envio real de e-mails quando OFICINA_EMAIL_MODE=SMTP.")
+ContainerDb(db, "PostgreSQL", "Banco de Dados Relacional", "Armazena clientes, veículos, OS, orçamentos, execuções, pagamentos, entregas, encerramentos, peças, serviços e usuários.")
+
+Container_Boundary(api, "API Spring Boot — Oficina Mecânica") {
+
+    Boundary(adaptersIn, "Adapters In / Web") {
+        Component(authCtrl, "AuthController", "adapters.in.web.controller", "Registro, autenticação e emissão de JWT.")
+        Component(coreCtrls, "Controllers REST", "adapters.in.web.controller", "Cliente, Veiculo, Peca, Servico e OrdemDeServico expostos por HTTP.")
+        Component(webDtos, "Requests, Responses e Web Mappers", "adapters.in.web.request/response/mapper", "Convertem payloads HTTP em commands e results da aplicação.")
+        Component(exHandler, "GlobalExceptionHandler", "adapters.in.web.controller", "Traduz exceções de aplicação e domínio em respostas HTTP padronizadas.")
+        Component(errorCtrl, "SanitizedErrorController", "adapters.in.web.controller", "Trata o fallback /error com payload sanitizado, sem path, error, exception ou trace.")
+        Component(apiErrorResponse, "ApiErrorResponse", "adapters.in.web.response", "Contrato comum de erro: timestamp, status e erro.")
+    }
+
+    Boundary(application, "Application") {
+        Component(inputPorts, "Input Ports", "application.port.in", "Contratos de entrada consumidos pelos controllers.")
+        Component(criarOSPort, "CriarOrdemServicoInputPort", "application.port.in", "Abertura de OS por clienteId e veiculoId.")
+        Component(criarOSCompletaPort, "CriarOrdemServicoCompletaInputPort", "application.port.in", "Abertura de OS com dados cadastrais de cliente e veiculo no mesmo payload.")
+        Component(filaOSPort, "ListarFilaOrdensServicoInputPort", "application.port.in", "Consulta a fila operacional de OS ativas.")
+        Component(decisaoOrcamentoPorts, "Ports de Decisao Externa de Orcamento", "application.port.in", "EnviarNotificacaoOrcamento, AprovarOrcamentoPorToken e RecusarOrcamentoPorToken.")
+        Component(notificacaoStatusPort, "NotificarStatusOrdemServicoInputPort", "application.port.in", "Notificação informativa do status da OS ao cliente.")
+        Component(useCases, "Use Cases", "application.usecase", "Orquestram casos de uso e regras de aplicação.")
+        Component(decisaoOrcamentoUseCase, "OrcamentoDecisaoClienteUseCase", "application.usecase", "Gera token, envia notificacao e delega aprovacao/recusa para o fluxo interno da OS.")
+        Component(notificacaoStatusUseCase, "NotificarStatusOrdemServicoUseCase", "application.usecase", "Monta e envia e-mail informativo de status por EmailNotificacaoPort.")
+        Component(criarOSCompletaUseCase, "CriarOrdemServicoCompletaUseCase", "application.usecase", "Reaproveita ou cria cliente/veiculo, monta itens por catalogo, cria OS e execucao inicial.")
+        Component(commandsResults, "Commands, Queries e Results", "application.command/query", "Objetos de entrada e saída da camada de aplicação.")
+        Component(criarOSCompletaCommand, "CriarOrdemServicoCompletaCommand", "application.command", "Comando de abertura completa de OS.")
+        Component(outputPorts, "Output Ports", "application.port.out", "Contratos para persistência, CEP, pagamento, JWT, hash de senha, e-mail e token seguro.")
+    }
+
+    Boundary(domain, "Domain") {
+        Component(domainModels, "Domain Models", "domain.model", "Cliente, Veiculo, OrdemDeServico, Orcamento, Execucao, Pagamento, Entrega, Encerramento, Peca, Servico e Usuario.")
+        Component(valueObjects, "Value Objects", "domain.valueobject", "CpfCnpj, Placa, Quantidade, MetodoPagamento, perfis e status do ciclo da OS.")
+        Component(domainExceptions, "Domain Exceptions", "domain.exception", "Exceções próprias de invariantes do domínio.")
+    }
+
+    Boundary(adaptersOut, "Adapters Out") {
+        Component(persistenceAdapters, "Persistence Adapters", "adapters.out.persistence", "Implementam repository ports e isolam a persistência.")
+        Component(jpaComponents, "JPA Entities, Repositories e Mappers", "adapters.out.persistence.jpa/repository/mapper", "Mapeiam domínio para tabelas e acessam o PostgreSQL via Spring Data JPA.")
+        Component(viaCepAdapter, "ViaCepEnderecoAdapter", "adapters.out.viacep", "Implementa BuscarEnderecoPorCepPort usando cliente HTTP para ViaCEP.")
+        Component(paymentAdapter, "MockPagamentoGatewayAdapter", "adapters.out.payment", "Implementa PagamentoGatewayPort com simulação de aprovação ou recusa.")
+        Component(emailAdapter, "EmailNotificacaoAdapters", "adapters.out.notification", "Implementações de EmailNotificacaoPort: LOG, SMTP ou desativada por configuração.")
+        Component(securityAdapters, "JwtTokenProviderAdapter, PasswordHasherAdapter e SecureTokenAdapter", "adapters.out.security", "Implementam JWT, hash de senha e token opaco por portas de saida.")
+    }
+
+    Boundary(infrastructure, "Infrastructure") {
+        Component(securityConfig, "SecurityConfig", "infrastructure.security", "Configura autenticação stateless, autorização por perfil e rotas públicas.")
+        Component(jwtFilter, "JwtAuthenticationFilter", "infrastructure.security", "Valida Bearer Token nas requisições protegidas.")
+        Component(userDetails, "CustomUserDetailsService", "infrastructure.security", "Carrega usuários para autenticação Spring Security.")
+        Component(appConfigs, "Configurações Spring e OpenAPI", "infrastructure.config/spring", "Configura beans, wiring dos use cases, RestTemplate e documentação OpenAPI.")
+    }
+}
+
+' Atores para adapters de entrada
+Rel(atendente, authCtrl, "Login e registro", "JSON/HTTPS")
+Rel(atendente, coreCtrls, "Clientes, veículos, OS, orçamentos, pagamentos e entregas", "JSON/HTTPS")
+Rel(mecanico, authCtrl, "Login", "JSON/HTTPS")
+Rel(mecanico, coreCtrls, "Diagnóstico, itens e finalização de serviço", "JSON/HTTPS")
+Rel(gestor, authCtrl, "Login e registro", "JSON/HTTPS")
+Rel(gestor, coreCtrls, "Acesso completo a cadastros, KPIs e OS", "JSON/HTTPS")
+Rel(cliente, coreCtrls, "Consulta status da OS e envia decisão de orçamento por token", "JSON/HTTPS")
+
+' Fluxo de entrada
+Rel(authCtrl, webDtos, "Mapeia requests e responses")
+Rel(coreCtrls, webDtos, "Mapeia requests e responses")
+Rel(errorCtrl, apiErrorResponse, "Retorna erro sanitizado")
+Rel(authCtrl, inputPorts, "Invoca contratos de autenticação")
+Rel(coreCtrls, inputPorts, "Invoca contratos dos casos de uso")
+Rel(coreCtrls, criarOSPort, "Abre OS por IDs")
+Rel(coreCtrls, criarOSCompletaPort, "Abre OS completa")
+Rel(coreCtrls, filaOSPort, "Lista fila operacional")
+Rel(coreCtrls, decisaoOrcamentoPorts, "Dispara notificacao e recebe decisao por token")
+Rel(useCases, notificacaoStatusPort, "Aciona notificacao apos mudanca de status")
+Rel(webDtos, criarOSCompletaCommand, "Mapeia request completo")
+Rel(exHandler, coreCtrls, "Padroniza erros HTTP")
+Rel(exHandler, apiErrorResponse, "Usa contrato de erro sanitizado")
+Rel(securityConfig, apiErrorResponse, "Escreve 401/403 em JSON")
+
+' Application e domínio
+Rel(inputPorts, useCases, "Implementados por")
+Rel(criarOSCompletaPort, criarOSCompletaUseCase, "Implementado por")
+Rel(filaOSPort, useCases, "Implementado por")
+Rel(decisaoOrcamentoPorts, decisaoOrcamentoUseCase, "Implementado por")
+Rel(notificacaoStatusPort, notificacaoStatusUseCase, "Implementado por")
+Rel(criarOSCompletaUseCase, criarOSCompletaCommand, "Consome")
+Rel(useCases, commandsResults, "Consome commands e retorna results")
+Rel(criarOSCompletaUseCase, domainModels, "Cria/reaproveita Cliente, Veiculo, OrdemDeServico e ItemOS")
+Rel(useCases, domainModels, "Orquestra regras de negócio")
+Rel(useCases, valueObjects, "Valida tipos e estados")
+Rel(domainModels, valueObjects, "Aplica invariantes")
+Rel(domainModels, domainExceptions, "Lança quando regras são violadas")
+Rel(useCases, outputPorts, "Depende de abstrações externas")
+Rel(criarOSCompletaUseCase, outputPorts, "Usa Cliente, Veiculo, OS, Servico, Peca, Execucao e CEP")
+Rel(decisaoOrcamentoUseCase, outputPorts, "Usa OS, Cliente, Orcamento, decisao, e-mail e token")
+Rel(notificacaoStatusUseCase, outputPorts, "Usa e-mail e base URL publica")
+
+' Saída por portas e adapters
+Rel(outputPorts, persistenceAdapters, "Implementado por", "Spring DI")
+Rel(outputPorts, viaCepAdapter, "Implementado por", "Spring DI")
+Rel(outputPorts, paymentAdapter, "Implementado por", "Spring DI")
+Rel(outputPorts, securityAdapters, "Implementado por", "Spring DI")
+Rel(outputPorts, emailAdapter, "Implementado por", "Spring DI")
+
+Rel(persistenceAdapters, jpaComponents, "Mapeia domínio e delega acesso a dados")
+Rel(jpaComponents, db, "Lê e escreve dados", "SQL/TCP")
+Rel(viaCepAdapter, viacep, "Consulta endereço por CEP", "HTTP GET")
+Rel(paymentAdapter, gatewayExt, "Simula chamada ao provedor", "HTTPS")
+Rel(emailAdapter, smtpServer, "Envia e-mail real quando configurado", "SMTP")
+Rel(emailAdapter, emailCliente, "Entrega notificacoes de orcamento e status", "E-mail")
+
+' Infraestrutura transversal
+Rel(securityConfig, jwtFilter, "Registra filtro JWT")
+Rel(jwtFilter, securityAdapters, "Valida token por TokenProviderPort")
+Rel(userDetails, outputPorts, "Busca usuário por UsuarioRepositoryPort")
+Rel(appConfigs, useCases, "Configura wiring dos casos de uso")
+Rel(appConfigs, viaCepAdapter, "Fornece RestTemplate")
+
+@enduml

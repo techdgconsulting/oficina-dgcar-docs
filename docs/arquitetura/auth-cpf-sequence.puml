@@ -1,0 +1,83 @@
+@startuml auth-cpf-sequence
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam sequenceMessageAlign center
+skinparam ArrowColor #1F2937
+skinparam ParticipantBorderColor #374151
+skinparam ParticipantBackgroundColor #F3F4F6
+skinparam ActorBorderColor #374151
+skinparam ActorBackgroundColor #FFFFFF
+
+title Sequencia De Autenticacao Por CPF - Cliente Externo
+
+actor "Cliente externo" as Cliente
+participant "Amazon API Gateway\nEntrada oficial" as Gateway
+participant "AWS Lambda\nAuth CPF\nNode.js 20.x" as Lambda
+database "Amazon RDS\nPostgreSQL" as RDS
+participant "Aplicacao Spring Boot\noficina-dgcar-api\nEKS" as API
+database "PostgreSQL\nDados da API" as DB
+
+== Emissao do JWT de cliente ==
+
+Cliente -> Gateway: POST /auth/cpf\n{ cpf }
+Gateway -> Lambda: Invoca Lambda Auth CPF\ncom correlationId
+Lambda -> Lambda: Normaliza CPF
+Lambda -> Lambda: Valida formato e digitos
+
+alt CPF invalido
+    Lambda --> Gateway: 400\nErro sanitizado
+    Gateway --> Cliente: 400\nCPF invalido
+else CPF valido
+    Lambda -> RDS: SELECT cliente\nWHERE documento = cpf
+    alt Cliente inexistente
+        RDS --> Lambda: vazio
+        Lambda --> Gateway: 404\nErro sanitizado
+        Gateway --> Cliente: 404\nCliente nao encontrado
+    else Cliente inativo ou bloqueado
+        RDS --> Lambda: cliente + status sem acesso
+        Lambda --> Gateway: 403\nErro sanitizado
+        Gateway --> Cliente: 403\nCliente sem acesso
+    else Cliente ativo
+        RDS --> Lambda: clienteId, documento, status
+        Lambda -> Lambda: Gera JWT externo\nsub, clienteId, tipo=CLIENTE,\nstatus, iss, iat, exp
+        Lambda --> Gateway: 200\nBearer token
+        Gateway --> Cliente: 200\nJWT de cliente externo
+    end
+end
+
+== Consumo de API protegida ==
+
+Cliente -> Gateway: GET /clientes/{clienteId}/ordens\nAuthorization: Bearer JWT
+Gateway -> Gateway: Valida token na borda\ne politica da rota
+
+alt Token invalido na borda
+    Gateway --> Cliente: 401/403
+else Token aceito na borda
+    Gateway -> API: Encaminha requisicao\ncom claims/correlationId
+    API -> API: Valida assinatura, iss, exp,\ntipo=CLIENTE e clienteId
+    alt Token invalido na aplicacao
+        API --> Gateway: 401/403
+        Gateway --> Cliente: 401/403
+    else Cliente autorizado ao proprio recurso
+        API -> DB: Consulta ordens do cliente
+        DB --> API: Ordens do cliente
+        API --> Gateway: 200\nDados autorizados
+        Gateway --> Cliente: 200\nResposta da API
+    else Cliente tenta acessar recurso de outro cliente
+        API --> Gateway: 403
+        Gateway --> Cliente: 403
+    end
+end
+
+note over Gateway,API
+  O JWT externo de cliente e validado no API Gateway
+  e novamente na aplicacao Spring Boot por defesa em profundidade.
+end note
+
+note over Lambda,RDS
+  A Lambda nao autentica usuarios internos.
+  Atendentes, mecanicos e gestores continuam usando /api/auth/login.
+end note
+
+@enduml

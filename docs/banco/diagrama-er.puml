@@ -1,0 +1,87 @@
+@startuml
+hide circle
+skinparam linetype ortho
+
+entity "clientes" as clientes {
+  * id : bigint
+  --
+  nome : varchar
+  documento : varchar
+  tipo_documento : varchar
+  email : varchar
+  telefone : varchar
+  senha_hash : varchar
+  status_cliente : varchar
+}
+
+entity "veiculos" as veiculos {
+  * id : bigint
+  --
+  cliente_id : bigint
+  placa : varchar
+  marca : varchar
+  modelo : varchar
+  ano : integer
+}
+
+entity "ordens_servico" as ordens {
+  * id : bigint
+  --
+  numero : varchar
+  cliente_id : bigint
+  veiculo_id : bigint
+  status : varchar
+  data_criacao : timestamp
+  data_finalizacao : timestamp
+}
+
+entity "itens_os" as itens {
+  * id : bigint
+  --
+  ordem_servico_id : bigint
+  tipo : varchar
+  referencia_id : bigint
+  descricao : varchar
+  quantidade : integer
+  valor_unitario : numeric
+}
+
+entity "orcamentos" as orcamentos {
+  * id : bigint
+  --
+  ordem_servico_id : bigint
+  status : varchar
+  valor_total : numeric
+  data_criacao : timestamp
+}
+
+entity "orcamento_decisao_cliente" as decisoes {
+  * id : bigint
+  --
+  ordem_servico_id : bigint
+  orcamento_id : bigint
+  token_hash : varchar
+  status : varchar
+  data_expiracao : timestamp
+}
+
+entity "pagamentos" as pagamentos {
+  * id : bigint
+  --
+  ordem_servico_id : bigint
+  status : varchar
+  metodo_pagamento : varchar
+  valor : numeric
+  transaction_id : varchar
+}
+
+clientes ||--o{ veiculos
+clientes ||--o{ ordens
+veiculos ||--o{ ordens
+ordens ||--o{ itens
+ordens ||--o| orcamentos
+ordens ||--o| pagamentos
+orcamentos ||--o{ decisoes
+ordens ||--o{ decisoes
+
+@enduml

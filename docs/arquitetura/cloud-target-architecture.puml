@@ -1,0 +1,99 @@
+@startuml cloud-target-architecture
+!theme plain
+skinparam backgroundColor #F8FAFC
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+skinparam ArrowColor #1F2937
+skinparam defaultTextAlignment center
+
+left to right direction
+
+title Arquitetura Cloud Alvo - Oficina Mecanica DGCar
+
+actor "Cliente externo\nCPF" as cliente
+actor "Usuario interno\nOficina" as interno
+actor "Desenvolvedor /\nGitHub Actions" as devops
+
+cloud "GitHub" {
+  rectangle "Repo 1\noficina-dgcar-auth-lambda\nLambda Auth CPF" as repoLambda
+  rectangle "Repo 2\noficina-dgcar-infra-k8s\nInfra Kubernetes" as repoK8s
+  rectangle "Repo 3\noficina-dgcar-infra-db\nInfra Banco" as repoDb
+  rectangle "Repo 4\noficina-dgcar-api\nAplicacao Principal" as repoApp
+  rectangle "GitHub Actions\nCI/CD homolog/prod" as actions
+}
+
+cloud "AWS" {
+  rectangle "Amazon API Gateway\nEntrada publica oficial" as apigw
+  rectangle "AWS Lambda\nAuth CPF" as lambda
+  rectangle "Amazon ECR\nImagens Docker" as ecr
+
+  package "VPC" {
+    rectangle "Amazon EKS\nCluster Kubernetes" as eks
+    rectangle "Kubernetes\noficina-api\nService + HPA" as k8s
+    database "Amazon RDS\nPostgreSQL Gerenciado" as rds
+  }
+}
+
+cloud "New Relic" {
+  rectangle "APM\nLatencia, erros e traces" as nrApm
+  rectangle "Logs\nJSON + correlationId" as nrLogs
+  rectangle "Dashboards\nOS, uptime, recursos" as nrDash
+  rectangle "Alertas\nFalhas e gargalos" as nrAlerts
+}
+
+cliente --> apigw : 1. Solicita autenticacao\npor CPF
+apigw --> lambda : 2. Invoca Lambda Auth
+lambda --> rds : 3. Consulta cliente\npor CPF/status
+lambda --> apigw : 4. Retorna JWT\ncliente externo
+cliente --> apigw : 5. Consome APIs protegidas\nBearer JWT
+
+interno --> apigw : 1. Login interno\n/api/auth/login
+apigw --> k8s : 2. Roteia login para\naplicacao principal
+k8s --> apigw : 3. Retorna JWT interno\nATENDENTE/MECANICO/GESTOR
+interno --> apigw : 4. Consome APIs operacionais\nBearer JWT interno
+apigw --> k8s : Roteia chamadas HTTP
+k8s --> rds : JDBC / transacoes
+
+devops --> actions : push, PR, merge ou tag
+repoLambda --> actions
+repoK8s --> actions
+repoDb --> actions
+repoApp --> actions
+
+actions --> lambda : deploy function
+actions --> ecr : build/push imagem
+actions --> eks : terraform/apply + kubectl
+actions --> rds : terraform/apply banco
+ecr --> k8s : imagem versionada
+eks --> k8s : executa pods
+
+lambda --> nrApm : metricas e traces
+k8s --> nrApm : APM Java
+k8s --> nrLogs : logs JSON
+apigw --> nrApm : latencia e erros
+lambda --> nrLogs : logs estruturados
+nrApm --> nrDash
+nrLogs --> nrDash
+nrDash --> nrAlerts
+
+note bottom of apigw
+  API Gateway centraliza exposicao publica,
+  roteamento, controle de entrada e integracao
+  com autenticacao serverless.
+end note
+
+note bottom of lambda
+  A Lambda valida CPF, consulta o cliente
+  e emite token JWT apenas de cliente externo.
+  Usuarios internos nao autenticam por esta Lambda.
+end note
+
+note bottom of k8s
+  A aplicacao principal permanece no EKS,
+  com HPA e futura observabilidade completa.
+  Login de atendentes, mecanicos e gestores
+  continua na aplicacao via /api/auth/login.
+end note
+
+@enduml

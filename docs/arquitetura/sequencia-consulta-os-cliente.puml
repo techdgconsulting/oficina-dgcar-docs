@@ -1,0 +1,21 @@
+@startuml
+actor Cliente
+participant "API Gateway" as Gateway
+participant "API Spring Boot" as API
+database "RDS PostgreSQL" as DB
+
+Cliente -> Gateway: GET /api/ordens-servico/numero/{numero}\nAuthorization: Bearer JWT CLIENTE
+Gateway -> API: Encaminha requisicao protegida
+API -> API: Valida assinatura, issuer, audience e tipo=CLIENTE
+API -> DB: Busca OS pelo numero
+DB --> API: OS com cliente/documento
+API -> API: Compara documento da OS com sub do JWT
+
+alt CPF corresponde a OS
+  API --> Gateway: 200 OK
+  Gateway --> Cliente: Dados da OS
+else CPF nao corresponde
+  API --> Gateway: 403 Forbidden
+  Gateway --> Cliente: Acesso negado
+end
+@enduml

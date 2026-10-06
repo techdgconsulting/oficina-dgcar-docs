@@ -1,0 +1,85 @@
+@startuml deploy-flow
+!theme plain
+skinparam backgroundColor #F8FAFC
+skinparam shadowing false
+skinparam ArrowColor #1F2937
+skinparam defaultTextAlignment center
+skinparam activity {
+  BackgroundColor #FFFFFF
+  BorderColor #1F2937
+  FontColor #111827
+  DiamondBackgroundColor #EEF2FF
+  DiamondBorderColor #4338CA
+}
+
+title Fluxo CI/CD - Infraestrutura, Destroy e Aplicacao
+
+start
+
+partition "GitHub / Mantenedor" {
+  :1. Push, merge ou execucao manual;
+}
+
+partition "Pipeline de Infraestrutura - infra.yml" {
+  :2. Checkout do repositorio;
+  :3. Configurar Terraform e credenciais AWS;
+
+  if (Acao = apply?) then (sim)
+    :4. Criar ou garantir o backend remoto do Terraform;
+    note right
+      Bootstrap do backend.
+      Executado apenas no apply.
+      Garante que o bucket S3 do state exista.
+    end note
+
+    :5. Gerar backend.tf apontando para o S3;
+    note right
+      Este arquivo apenas configura
+      onde esta o state remoto.
+    end note
+    :6. Gerar terraform.tfvars da execucao;
+    :7. Executar terraform init e validate;
+    :8. Executar terraform plan;
+    :9. Executar terraform apply;
+    :10. Provisionar VPC, EKS, RDS, ECR, IAM e Security Groups;
+    :11. Publicar outputs da infraestrutura;
+
+  else (destroy)
+    :4. Gerar backend.tf apontando para o S3 existente;
+    note right
+      No destroy nao se cria o backend.
+      O arquivo e gerado para permitir
+      terraform init e leitura do state remoto.
+    end note
+    :5. Gerar terraform.tfvars da execucao;
+    :6. Executar terraform init;
+    :7. Ler outputs existentes no state remoto;
+    :8. Remover Service e namespace Kubernetes;
+    :9. Limpar Classic ELB, ELBv2 e ENIs de LoadBalancer;
+    :10. Remover security groups orfaos k8s-elb;
+    :11. Executar terraform destroy;
+    stop
+  endif
+}
+
+partition "Pipeline da Aplicacao - app-cd.yml" {
+  :12. Push de codigo da aplicacao ou execucao manual;
+  :13. Executar build e testes com Maven;
+  :14. Gerar backend.tf para ler outputs da infra;
+  :15. Ler outputs do Terraform no state remoto;
+  :16. Validar ECR, EKS e URL JDBC recebidos da infra;
+  :17. Buildar imagem Docker versionada pelo commit;
+  :18. Publicar imagem no Amazon ECR;
+  :19. Atualizar kubeconfig do EKS;
+  :20. Criar ou atualizar namespace Kubernetes;
+  :21. Criar ou atualizar Secret da aplicacao;
+  :22. Preparar ConfigMap e Kustomize com outputs da infra;
+  :23. Aplicar manifestos Kubernetes;
+  :24. Atualizar imagem do Deployment oficina-api;
+  :25. Aguardar rollout dos pods;
+  :26. Atualizar URL publica com hostname do LoadBalancer;
+  :27. Expor Swagger e API via Service LoadBalancer;
+}
+
+stop
+@enduml

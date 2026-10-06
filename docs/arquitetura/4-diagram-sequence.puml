@@ -1,0 +1,614 @@
+@startuml SequenceDiagram
+title Diagrama de Sequência - Fluxo da Ordem de Serviço na Nova Arquitetura
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam sequenceMessageAlign center
+skinparam sequence {
+    ArrowColor #2F3A4A
+    LifeLineBorderColor #6B7280
+    LifeLineBackgroundColor #F9FAFB
+    ParticipantBorderColor #2F3A4A
+    ParticipantBackgroundColor #F3F4F6
+    ParticipantFontColor #111827
+    BoxBorderColor #9CA3AF
+    BoxBackgroundColor #FFFFFF
+}
+
+actor "Atendente" as Atendente
+actor "Cliente" as ClienteExterno
+actor "Mecânico" as Mecanico
+
+box "frameworks & drivers\nAPI HTTP / Spring MVC" #D7F3FF
+    participant "API REST\nRotas HTTP / JSON" as RestApi
+end box
+
+box "adapters/in/web\nInterface Adapters" #CCF4D6
+    participant "ClienteController" as ClienteController
+    participant "ClienteWebMapper" as ClienteWebMapper
+    participant "VeiculoController" as VeiculoController
+    participant "VeiculoWebMapper" as VeiculoWebMapper
+    participant "OrdemDeServicoController" as OSController
+    participant "OrcamentoDecisaoClienteController" as DecisaoController
+    participant "OrdemDeServicoWebMapper" as OSWebMapper
+end box
+
+box "application\nApplication Business Rules / Use Cases" #FFD1D1
+    participant "InputPorts de Cliente" as ClienteInputPorts <<interfaces>>
+    participant "CriarClienteUseCase" as CriarClienteUseCase
+    participant "InputPorts de Veículo" as VeiculoInputPorts <<interfaces>>
+    participant "CriarVeiculoUseCase" as CriarVeiculoUseCase
+    participant "InputPorts de OS" as OSInputPorts <<interfaces>>
+    participant "OrdemDeServicoUseCase" as OSUseCase
+    participant "CriarOrdemServicoCompletaUseCase" as OSCompletaUseCase
+    participant "OrcamentoDecisaoClienteUseCase" as DecisaoUseCase
+    participant "NotificarStatusOrdemServicoUseCase" as NotificacaoStatusUseCase
+    participant "ClienteRepositoryPort" as ClienteRepoPort <<interface>>
+    participant "BuscarEnderecoPorCepPort" as CepPort <<interface>>
+    participant "VeiculoRepositoryPort" as VeiculoRepoPort <<interface>>
+    participant "OrdemDeServicoRepositoryPort" as OSRepoPort <<interface>>
+    participant "ExecucaoRepositoryPort" as ExecucaoRepoPort <<interface>>
+    participant "ServicoRepositoryPort" as ServicoRepoPort <<interface>>
+    participant "PecaRepositoryPort" as PecaRepoPort <<interface>>
+    participant "OrcamentoRepositoryPort" as OrcamentoRepoPort <<interface>>
+    participant "OrcamentoDecisaoClienteRepositoryPort" as DecisaoRepoPort <<interface>>
+    participant "EmailNotificacaoPort" as EmailPort <<interface>>
+    participant "TokenSeguroPort" as TokenPort <<interface>>
+    participant "PagamentoRepositoryPort" as PagamentoRepoPort <<interface>>
+    participant "PagamentoGatewayPort" as PagamentoGatewayPort <<interface>>
+    participant "EntregaRepositoryPort" as EntregaRepoPort <<interface>>
+    participant "EncerramentoRepositoryPort" as EncerramentoRepoPort <<interface>>
+end box
+
+box "domain\nEnterprise Business Rules / Entities" #FFF3B0
+    participant "CpfCnpj" as CpfCnpj
+    participant "Placa" as Placa
+    participant "Cliente" as ClienteDomain
+    participant "Veículo" as VeiculoDomain
+    participant "OrdemDeServico" as OS
+    participant "ItemOS" as ItemOS
+    participant "Orcamento" as Orcamento
+    participant "Pagamento" as Pagamento
+    participant "Entrega" as Entrega
+    participant "Encerramento" as Encerramento
+    participant "Peca" as Peca
+end box
+
+box "adapters/out\nInterface Adapters" #CCF4D6
+    participant "ClientePersistenceAdapter" as ClientePersistence
+    participant "ViaCepEnderecoAdapter" as ViaCepAdapter
+    participant "VeiculoPersistenceAdapter" as VeiculoPersistence
+    participant "OrdemDeServicoPersistenceAdapter" as OSPersistence
+    participant "ExecucaoPersistenceAdapter" as ExecucaoPersistence
+    participant "OrcamentoPersistenceAdapter" as OrcamentoPersistence
+    participant "OrcamentoDecisaoClientePersistenceAdapter" as DecisaoPersistence
+    participant "EmailNotificacaoAdapters\nLOG / SMTP / Disabled" as EmailAdapter
+    participant "SecureTokenAdapter" as SecureTokenAdapter
+    participant "PagamentoPersistenceAdapter" as PagamentoPersistence
+    participant "EntregaPersistenceAdapter" as EntregaPersistence
+    participant "EncerramentoPersistenceAdapter" as EncerramentoPersistence
+    participant "PecaPersistenceAdapter" as PecaPersistence
+    participant "MockPagamentoGatewayAdapter" as GatewayAdapter
+end box
+
+database "PostgreSQL\nFrameworks & Drivers" as DB #D7F3FF
+
+== 1. Cadastro do cliente ==
+
+Atendente -> RestApi: POST /api/clientes\nClienteRequest
+RestApi -> ClienteController: despacha requisição HTTP
+ClienteController -> ClienteWebMapper: toCriarCommand(request)
+ClienteWebMapper --> ClienteController: CriarClienteCommand
+ClienteController -> ClienteInputPorts: CriarClienteInputPort.execute(command)
+ClienteInputPorts -> CriarClienteUseCase: implementado por\nCriarClienteUseCase
+CriarClienteUseCase -> CpfCnpj: new CpfCnpj(documento)
+CpfCnpj --> CriarClienteUseCase: documento validado
+CriarClienteUseCase -> ClienteRepoPort: existePorDocumento(documento)
+ClienteRepoPort -> ClientePersistence: existePorDocumento(documento)
+ClientePersistence -> DB: consultar cliente por documento
+DB --> ClientePersistence: não existe
+ClientePersistence --> CriarClienteUseCase: false
+CriarClienteUseCase -> ClienteDomain: criar cliente
+
+alt CEP informado no cadastro
+    CriarClienteUseCase -> CepPort: buscarPorCep(cep)
+    CepPort -> ViaCepAdapter: implementado por\nViaCepEnderecoAdapter
+    alt endereço encontrado
+        ViaCepAdapter --> CriarClienteUseCase: EnderecoResult
+        CriarClienteUseCase -> ClienteDomain: preencherEndereco(cep,\nlogradouro, bairro, cidade, uf)
+    else CEP não encontrado ou falha externa
+        ViaCepAdapter --> CriarClienteUseCase: Optional.empty
+        note right of CriarClienteUseCase
+          Criação do cliente continua
+          sem bloquear o fluxo.
+        end note
+    end
+end
+
+CriarClienteUseCase -> ClienteRepoPort: salvar(cliente)
+ClienteRepoPort -> ClientePersistence: salvar(cliente)
+ClientePersistence -> DB: persistir cliente
+DB --> ClientePersistence: Cliente persistido
+ClientePersistence --> CriarClienteUseCase: Cliente
+CriarClienteUseCase --> ClienteController: ClienteResult
+ClienteController -> ClienteWebMapper: toResponse(result)
+ClienteWebMapper --> ClienteController: ClienteResponse
+ClienteController --> RestApi: ClienteResponse
+RestApi --> Atendente: 201 Created\nCliente cadastrado
+
+== 2. Cadastro do veículo ==
+
+Atendente -> RestApi: POST /api/veiculos\nVeiculoRequest
+RestApi -> VeiculoController: despacha requisição HTTP
+VeiculoController -> VeiculoWebMapper: toCriarCommand(request)
+VeiculoWebMapper --> VeiculoController: CriarVeiculoCommand
+VeiculoController -> VeiculoInputPorts: CriarVeiculoInputPort.execute(command)
+VeiculoInputPorts -> CriarVeiculoUseCase: implementado por\nCriarVeiculoUseCase
+CriarVeiculoUseCase -> ClienteRepoPort: buscarPorId(clienteId)
+ClienteRepoPort -> ClientePersistence: buscarPorId(clienteId)
+ClientePersistence -> DB: consultar cliente
+DB --> ClientePersistence: Cliente encontrado
+ClientePersistence --> CriarVeiculoUseCase: Cliente
+CriarVeiculoUseCase -> Placa: new Placa(placa)
+Placa --> CriarVeiculoUseCase: placa validada
+CriarVeiculoUseCase -> VeiculoDomain: criar veículo
+CriarVeiculoUseCase -> VeiculoRepoPort: salvar(veiculo)
+VeiculoRepoPort -> VeiculoPersistence: salvar(veiculo)
+VeiculoPersistence -> DB: persistir veículo
+DB --> VeiculoPersistence: Veículo persistido
+VeiculoPersistence --> CriarVeiculoUseCase: Veiculo
+CriarVeiculoUseCase --> VeiculoController: VeiculoResult
+VeiculoController -> VeiculoWebMapper: toResponse(result)
+VeiculoWebMapper --> VeiculoController: VeiculoResponse
+VeiculoController --> RestApi: VeiculoResponse
+RestApi --> Atendente: 201 Created\nVeículo cadastrado
+
+== 3. Abertura da ordem de serviço ==
+
+Atendente -> RestApi: POST /api/ordens-servico\nCriarOrdemServicoRequest
+RestApi -> OSController: despacha requisição HTTP
+OSController -> OSWebMapper: toCriarCommand(request)
+OSWebMapper --> OSController: CriarOrdemServicoCommand
+OSController -> OSInputPorts: CriarOrdemServicoInputPort.execute(command)
+OSInputPorts -> OSUseCase: implementado por\nOrdemDeServicoUseCase
+OSUseCase -> ClienteRepoPort: buscarPorId(clienteId)
+ClienteRepoPort --> OSUseCase: Cliente
+OSUseCase -> VeiculoRepoPort: buscarPorId(veiculoId)
+VeiculoRepoPort --> OSUseCase: Veiculo
+OSUseCase -> OS: criar OS com cliente,\nveículo e status RECEBIDA
+OSUseCase -> OSRepoPort: salvar(ordemDeServico)
+OSRepoPort -> OSPersistence: salvar(ordemDeServico)
+OSPersistence -> DB: persistir OS
+DB --> OSPersistence: OS persistida
+OSPersistence --> OSUseCase: OrdemDeServico
+OSUseCase --> OSController: OrdemServicoResult
+OSController -> OSWebMapper: toResponse(result)
+OSWebMapper --> OSController: OrdemServicoResponse
+OSController --> RestApi: OrdemServicoResponse
+RestApi --> Atendente: 201 Created\nOS aberta
+
+== 3b. Abertura completa da ordem de serviço ==
+
+Atendente -> RestApi: POST /api/ordens-servico/completa\ncliente, veículo, serviços e peças
+RestApi -> OSController: despacha requisição HTTP
+OSController -> OSWebMapper: toCriarCompletaCommand(request)
+OSWebMapper --> OSController: CriarOrdemServicoCompletaCommand
+OSController -> OSInputPorts: CriarOrdemServicoCompletaInputPort.execute(command)
+OSInputPorts -> OSCompletaUseCase: implementado por\nCriarOrdemServicoCompletaUseCase
+
+OSCompletaUseCase -> CpfCnpj: new CpfCnpj(documento)
+CpfCnpj --> OSCompletaUseCase: documento validado
+OSCompletaUseCase -> ClienteRepoPort: buscarPorDocumento(documento)
+ClienteRepoPort -> ClientePersistence: buscarPorDocumento(documento)
+ClientePersistence -> DB: consultar cliente por documento
+
+alt cliente existente
+    DB --> ClientePersistence: Cliente encontrado
+    ClientePersistence --> OSCompletaUseCase: Cliente
+else cliente inexistente
+    DB --> ClientePersistence: vazio
+    ClientePersistence --> OSCompletaUseCase: Optional.empty
+    OSCompletaUseCase -> ClienteDomain: criar cliente
+    alt endereço completo informado
+        OSCompletaUseCase -> ClienteDomain: preencherEndereco(cep,\nlogradouro, bairro, cidade, uf)
+    else somente CEP informado
+        OSCompletaUseCase -> CepPort: buscarPorCep(cep)
+        CepPort -> ViaCepAdapter: implementado por\nViaCepEnderecoAdapter
+        alt endereço encontrado
+            ViaCepAdapter --> OSCompletaUseCase: EnderecoResult
+            OSCompletaUseCase -> ClienteDomain: preencherEndereco(cep,\nlogradouro, bairro, cidade, uf)
+        else CEP não encontrado ou falha externa
+            ViaCepAdapter --> OSCompletaUseCase: Optional.empty
+            note right of OSCompletaUseCase
+              OS completa continua:
+              CEP é enriquecimento opcional.
+            end note
+        end
+    end
+    OSCompletaUseCase -> ClienteRepoPort: salvar(cliente)
+    ClienteRepoPort -> ClientePersistence: salvar(cliente)
+    ClientePersistence -> DB: persistir cliente
+    DB --> ClientePersistence: Cliente persistido
+    ClientePersistence --> OSCompletaUseCase: Cliente
+end
+
+OSCompletaUseCase -> Placa: new Placa(placa)
+Placa --> OSCompletaUseCase: placa validada
+OSCompletaUseCase -> VeiculoRepoPort: buscarPorPlaca(placa)
+VeiculoRepoPort -> VeiculoPersistence: buscarPorPlaca(placa)
+VeiculoPersistence -> DB: consultar veículo por placa
+
+alt veículo existente do cliente
+    DB --> VeiculoPersistence: Veículo encontrado
+    VeiculoPersistence --> OSCompletaUseCase: Veiculo
+else veículo existente de outro cliente
+    DB --> VeiculoPersistence: Veículo encontrado
+    VeiculoPersistence --> OSCompletaUseCase: Veiculo
+    OSCompletaUseCase --> OSController: NegocioException
+    OSController --> RestApi: erro padronizado\nsem campos sensiveis
+    RestApi --> Atendente: 422 Unprocessable Entity
+else veículo inexistente
+    DB --> VeiculoPersistence: vazio
+    VeiculoPersistence --> OSCompletaUseCase: Optional.empty
+    OSCompletaUseCase -> VeiculoDomain: criar veículo vinculado ao cliente
+    OSCompletaUseCase -> VeiculoRepoPort: salvar(veiculo)
+    VeiculoRepoPort -> VeiculoPersistence: salvar(veiculo)
+    VeiculoPersistence -> DB: persistir veículo
+    DB --> VeiculoPersistence: Veículo persistido
+    VeiculoPersistence --> OSCompletaUseCase: Veiculo
+end
+
+loop Para cada serviço informado
+    OSCompletaUseCase -> ServicoRepoPort: buscarPorId(servicoId)
+    ServicoRepoPort --> OSCompletaUseCase: Servico
+    OSCompletaUseCase -> ItemOS: criar item de serviço\ncom valor do catálogo
+end
+
+loop Para cada peça informada
+    OSCompletaUseCase -> PecaRepoPort: buscarPorId(pecaId)
+    PecaRepoPort --> OSCompletaUseCase: Peca
+    OSCompletaUseCase -> Peca: verificarDisponibilidade(quantidade)
+    Peca --> OSCompletaUseCase: disponível
+    OSCompletaUseCase -> ItemOS: criar item de peça\ncom valor do catálogo
+end
+
+OSCompletaUseCase -> OS: criar OS com status RECEBIDA
+OSCompletaUseCase -> OSRepoPort: salvar(ordemDeServico)
+OSRepoPort -> OSPersistence: salvar(ordemDeServico)
+OSPersistence -> DB: persistir OS
+DB --> OSPersistence: OS persistida com id
+OSPersistence --> OSCompletaUseCase: OrdemDeServico
+OSCompletaUseCase -> OS: atribuirNumero(OS-ano-id)
+OSCompletaUseCase -> OSRepoPort: salvar(ordemDeServico)
+OSRepoPort -> OSPersistence: salvar(ordemDeServico)
+OSPersistence -> DB: atualizar número da OS
+OSCompletaUseCase -> ExecucaoRepoPort: salvar(Execucao.criar(osId))
+ExecucaoRepoPort -> ExecucaoPersistence: salvar(execucao)
+ExecucaoPersistence -> DB: persistir execução inicial
+OSCompletaUseCase --> OSController: OrdemServicoResult
+OSController -> OSWebMapper: toResponse(result)
+OSWebMapper --> OSController: OrdemServicoResponse
+OSController --> RestApi: OrdemServicoResponse
+RestApi --> Atendente: 201 Created\nOS aberta com id e número
+
+== 4. Inclusão de serviços e peças ==
+
+Atendente -> RestApi: POST /api/ordens-servico/{id}/itens\nItemOSRequest[]
+RestApi -> OSController: despacha requisição HTTP
+OSController -> OSWebMapper: toAdicionarItensCommand(id, request)
+OSWebMapper --> OSController: AdicionarItemOSCommand
+OSController -> OSInputPorts: AdicionarItensOrdemServicoInputPort.execute(command)
+OSInputPorts -> OSUseCase: OrdemDeServicoUseCase
+OSUseCase -> OSRepoPort: buscarPorId(osId)
+OSRepoPort --> OSUseCase: OrdemDeServico
+
+loop Para cada serviço
+    OSUseCase -> ServicoRepoPort: buscarPorId(servicoId)
+    ServicoRepoPort --> OSUseCase: Servico
+    OSUseCase -> ItemOS: criar item de serviço
+    OSUseCase -> OS: adicionarItem(itemServico)
+end
+
+loop Para cada peça
+    OSUseCase -> PecaRepoPort: buscarPorId(pecaId)
+    PecaRepoPort --> OSUseCase: Peca
+    OSUseCase -> Peca: verificarDisponibilidade(quantidade)
+    Peca --> OSUseCase: disponível
+    OSUseCase -> ItemOS: criar item de peça
+    OSUseCase -> OS: adicionarItem(itemPeca)
+end
+
+OSUseCase -> OSRepoPort: salvar(ordemDeServico)
+OSRepoPort -> OSPersistence: salvar(ordemDeServico)
+OSPersistence -> DB: atualizar itens da OS
+DB --> OSPersistence: OS atualizada
+OSPersistence --> OSUseCase: OrdemDeServico
+OSUseCase --> OSController: OrdemServicoResult
+OSController --> RestApi: OrdemServicoResponse
+RestApi --> Atendente: 200 OK\nItens adicionados
+
+== 5. Diagnóstico ==
+
+Mecanico -> RestApi: PATCH /api/ordens-servico/{id}/iniciar-diagnostico
+RestApi -> OSController: despacha requisição HTTP
+OSController -> OSInputPorts: IniciarDiagnosticoInputPort.execute(command)
+OSInputPorts -> OSUseCase: OrdemDeServicoUseCase
+OSUseCase -> OSRepoPort: buscarPorId(osId)
+OSRepoPort --> OSUseCase: OrdemDeServico recebida
+OSUseCase -> OS: avancarParaDiagnostico()
+OSUseCase -> OSRepoPort: salvar(ordemDeServico)
+OSRepoPort -> OSPersistence: salvar(ordemDeServico)
+OSPersistence -> DB: status EM_DIAGNOSTICO
+OSUseCase --> OSController: OrdemServicoResult
+OSController --> RestApi: OrdemServicoResponse
+RestApi --> Mecanico: 200 OK\nDiagnóstico iniciado
+
+== 6. Orçamento - geração e envio ==
+
+Atendente -> RestApi: POST /api/ordens-servico/{id}/orcamento
+RestApi -> OSController: despacha requisição HTTP
+OSController -> OSInputPorts: GerarOrcamentoInputPort.execute(command)
+OSInputPorts -> OSUseCase: OrdemDeServicoUseCase
+OSUseCase -> OSRepoPort: buscarPorId(osId)
+OSRepoPort --> OSUseCase: OrdemDeServico com itens
+OSUseCase -> Orcamento: gerar a partir dos itens da OS
+OSUseCase -> Orcamento: enviar()
+OSUseCase -> OrcamentoRepoPort: salvar(orcamento)
+OrcamentoRepoPort -> OrcamentoPersistence: salvar(orcamento)
+OrcamentoPersistence -> DB: persistir orçamento
+DB --> OrcamentoPersistence: Orcamento persistido
+OSUseCase -> OS: aguardarAprovacao()
+OSUseCase -> OSRepoPort: salvar(ordemDeServico)
+OSRepoPort -> OSPersistence: salvar(ordemDeServico)
+OSPersistence -> DB: atualizar status da OS
+OSUseCase --> OSController: OrcamentoResult
+OSController --> RestApi: OrcamentoResponse
+RestApi --> Atendente: 200 OK\nOrçamento gerado
+Atendente -> RestApi: POST /api/ordens-servico/{id}/orcamento/notificar-cliente
+RestApi -> OSController: despacha requisição HTTP
+OSController -> OSInputPorts: EnviarNotificacaoOrcamentoInputPort.execute(command)
+OSInputPorts -> DecisaoUseCase: OrcamentoDecisaoClienteUseCase
+DecisaoUseCase -> OSRepoPort: buscarPorId(osId)
+DecisaoUseCase -> OrcamentoRepoPort: buscar ativo por OS
+DecisaoUseCase -> DecisaoRepoPort: listarPorOrcamentoEStatus(orcamentoId, PENDENTE)
+DecisaoRepoPort --> DecisaoUseCase: decisoes pendentes anteriores
+loop Para cada decisao pendente anterior
+    DecisaoUseCase -> DecisaoRepoPort: salvar(decisao EXPIRADA)
+end
+DecisaoUseCase -> TokenPort: gerarToken() e gerarHash(token)
+TokenPort -> SecureTokenAdapter: token opaco e hash SHA-256
+DecisaoUseCase -> DecisaoRepoPort: salvar(decisao com tokenHash e expiracao)
+DecisaoRepoPort -> DecisaoPersistence: salvar(decisao)
+DecisaoPersistence -> DB: persistir orcamento_decisao_cliente
+DecisaoUseCase -> EmailPort: enviar(email com links POST)
+EmailPort -> EmailAdapter: enviar conforme configuracao\nLOG ou SMTP
+EmailAdapter --> ClienteExterno: links /aprovar e /recusar com token
+DecisaoUseCase --> OSController: NotificacaoOrcamentoResult
+OSController --> RestApi: NotificacaoOrcamentoResponse
+RestApi --> Atendente: 200 OK\nNotificacao criada
+
+== 7a. Aprovação do orçamento ==
+
+alt decisão externa por token
+ClienteExterno -> RestApi: POST /api/orcamentos/decisoes-cliente/{token}/aprovar
+RestApi -> DecisaoController: despacha requisição pública\nsem JWT
+note right of RestApi
+  Endpoint público no SecurityConfig.
+  O token opaco não é JWT e não autentica usuário interno.
+end note
+DecisaoController -> OSInputPorts: AprovarOrcamentoPorTokenInputPort.execute(command)
+OSInputPorts -> DecisaoUseCase: validar token, expiracao e uso unico
+DecisaoUseCase -> TokenPort: gerarHash(token)
+TokenPort -> SecureTokenAdapter: SHA-256 do token opaco
+SecureTokenAdapter --> DecisaoUseCase: tokenHash
+DecisaoUseCase -> DecisaoRepoPort: buscarPorTokenHash(hash)
+DecisaoUseCase -> OSUseCase: delega para AprovarOrcamentoInputPort
+else registro interno pela equipe
+ClienteExterno -> Atendente: comunica aprovação
+Atendente -> RestApi: PATCH /api/ordens-servico/{id}/aprovar
+RestApi -> OSController: despacha requisição HTTP
+OSController -> OSInputPorts: AprovarOrcamentoInputPort.execute(command)
+OSInputPorts -> OSUseCase: OrdemDeServicoUseCase
+end
+OSUseCase -> OrcamentoRepoPort: buscar ativo por OS
+OrcamentoRepoPort --> OSUseCase: Orcamento
+OSUseCase -> Orcamento: aprovar()
+OSUseCase -> OSRepoPort: buscarPorId(osId)
+OSRepoPort --> OSUseCase: OrdemDeServico
+OSUseCase -> OS: aprovarEIniciarExecucao()
+
+loop Para cada peça usada
+    OSUseCase -> PecaRepoPort: buscarPorId(pecaId)
+    PecaRepoPort -> PecaPersistence: buscarPorId(pecaId)
+    PecaPersistence --> OSUseCase: Peca
+    OSUseCase -> Peca: baixarEstoque(quantidade)
+    OSUseCase -> PecaRepoPort: salvar(peca)
+    PecaRepoPort -> PecaPersistence: salvar(peca)
+    PecaPersistence -> DB: atualizar estoque
+end
+
+OSUseCase -> OrcamentoRepoPort: salvar(orcamento)
+OrcamentoRepoPort -> OrcamentoPersistence: salvar(orcamento)
+OrcamentoPersistence -> DB: atualizar orçamento aprovado
+OSUseCase -> OSRepoPort: salvar(ordemDeServico)
+OSRepoPort -> OSPersistence: salvar(ordemDeServico)
+OSPersistence -> DB: status EM_EXECUCAO
+
+alt resposta da decisao externa por token
+    OSUseCase --> DecisaoUseCase: OrdemServicoResult
+    DecisaoUseCase -> DecisaoRepoPort: salvar(decisao APROVADA)
+    DecisaoUseCase --> DecisaoController: DecisaoOrcamentoClienteResult
+    DecisaoController --> RestApi: DecisaoOrcamentoClienteResponse
+    RestApi --> ClienteExterno: 200 OK\nOrcamento aprovado
+else resposta do registro interno
+    OSUseCase --> OSController: OrdemServicoResult
+    OSController --> RestApi: OrdemServicoResponse
+    RestApi --> Atendente: 200 OK\nOrcamento aprovado
+end
+
+== 7b. Rejeição do orçamento ==
+
+alt decisão externa por token
+ClienteExterno -> RestApi: POST /api/orcamentos/decisoes-cliente/{token}/recusar
+RestApi -> DecisaoController: despacha requisição pública\nsem JWT
+note right of RestApi
+  Endpoint público no SecurityConfig.
+  O token opaco não é JWT e não autentica usuário interno.
+end note
+DecisaoController -> OSInputPorts: RecusarOrcamentoPorTokenInputPort.executeRecusar(command)
+OSInputPorts -> DecisaoUseCase: validar token, expiracao e uso unico
+DecisaoUseCase -> TokenPort: gerarHash(token)
+TokenPort -> SecureTokenAdapter: SHA-256 do token opaco
+SecureTokenAdapter --> DecisaoUseCase: tokenHash
+DecisaoUseCase -> DecisaoRepoPort: buscarPorTokenHash(hash)
+DecisaoUseCase -> OSUseCase: delega para RejeitarOrcamentoInputPort
+else registro interno pela equipe
+ClienteExterno -> Atendente: comunica rejeição
+Atendente -> RestApi: PATCH /api/ordens-servico/{id}/rejeitar
+RestApi -> OSController: despacha requisição HTTP
+OSController -> OSInputPorts: RejeitarOrcamentoInputPort.execute(command)
+OSInputPorts -> OSUseCase: OrdemDeServicoUseCase
+end
+OSUseCase -> OrcamentoRepoPort: buscar ativo por OS
+OrcamentoRepoPort --> OSUseCase: Orcamento
+OSUseCase -> Orcamento: rejeitar()
+OSUseCase -> OSRepoPort: buscarPorId(osId)
+OSRepoPort --> OSUseCase: OrdemDeServico
+OSUseCase -> OS: cancelar()
+OSUseCase -> OrcamentoRepoPort: salvar(orcamento)
+OSUseCase -> OSRepoPort: salvar(ordemDeServico)
+OSRepoPort -> OSPersistence: salvar(ordemDeServico)
+OSPersistence -> DB: status CANCELADA
+
+alt resposta da decisao externa por token
+    OSUseCase --> DecisaoUseCase: OrdemServicoResult
+    DecisaoUseCase -> DecisaoRepoPort: salvar(decisao RECUSADA)
+    DecisaoUseCase --> DecisaoController: DecisaoOrcamentoClienteResult
+    DecisaoController --> RestApi: DecisaoOrcamentoClienteResponse
+    RestApi --> ClienteExterno: 200 OK\nOrcamento recusado
+else resposta do registro interno
+    OSUseCase --> OSController: OrdemServicoResult
+    OSController --> RestApi: OrdemServicoResponse
+    RestApi --> Atendente: 200 OK\nOrcamento rejeitado
+end
+
+== 8. Finalização do serviço ==
+
+Mecanico -> RestApi: PATCH /api/ordens-servico/{id}/finalizar
+RestApi -> OSController: despacha requisição HTTP
+OSController -> OSInputPorts: FinalizarServicoInputPort.execute(command)
+OSInputPorts -> OSUseCase: OrdemDeServicoUseCase
+OSUseCase -> OSRepoPort: buscarPorId(osId)
+OSRepoPort --> OSUseCase: OrdemDeServico em execução
+OSUseCase -> OS: finalizar()
+OSUseCase -> OSRepoPort: salvar(ordemDeServico)
+OSRepoPort -> OSPersistence: salvar(ordemDeServico)
+OSPersistence -> DB: status FINALIZADA
+OSUseCase --> OSController: OrdemServicoResult
+OSController --> RestApi: OrdemServicoResponse
+RestApi --> Mecanico: 200 OK\nServiço finalizado
+
+== 9. Pagamento ==
+
+Atendente -> RestApi: POST /api/ordens-servico/{id}/pagamento
+RestApi -> OSController: despacha requisição HTTP
+OSController -> OSInputPorts: RegistrarPagamentoInputPort.execute(command)
+OSInputPorts -> OSUseCase: OrdemDeServicoUseCase
+OSUseCase -> OSRepoPort: buscarPorId(osId)
+OSRepoPort --> OSUseCase: OrdemDeServico finalizada
+OSUseCase -> Pagamento: criar pagamento pendente
+OSUseCase -> PagamentoGatewayPort: processar(GatewayRequest)
+PagamentoGatewayPort -> GatewayAdapter: processar(GatewayRequest)
+GatewayAdapter --> OSUseCase: GatewayResponse
+
+alt pagamento aprovado
+    OSUseCase -> Pagamento: aprovar()
+    OSUseCase -> PagamentoRepoPort: salvar(pagamento)
+    PagamentoRepoPort -> PagamentoPersistence: salvar(pagamento)
+    PagamentoPersistence -> DB: persistir pagamento aprovado
+    OSUseCase -> OS: aguardarRetirada()
+    OSUseCase -> OSRepoPort: salvar(ordemDeServico)
+    OSRepoPort -> OSPersistence: salvar(ordemDeServico)
+    OSPersistence -> DB: status AGUARDANDO_RETIRADA
+    OSUseCase --> OSController: OrdemServicoResult
+    OSController --> RestApi: OrdemServicoResponse
+    RestApi --> Atendente: 200 OK\nPagamento aprovado
+else pagamento recusado
+    OSUseCase -> Pagamento: recusar()
+    OSUseCase -> PagamentoRepoPort: salvar(pagamento)
+    PagamentoRepoPort -> PagamentoPersistence: salvar(pagamento)
+    PagamentoPersistence -> DB: persistir pagamento recusado
+    OSUseCase --> OSController: NegocioException
+    OSController --> RestApi: erro padronizado\nsem campos sensiveis
+    RestApi --> Atendente: 422 Unprocessable Entity
+end
+
+== 10. Entrega e encerramento ==
+
+Atendente -> RestApi: PATCH /api/ordens-servico/{id}/entregar
+RestApi -> OSController: despacha requisição HTTP
+OSController -> OSInputPorts: EntregarVeiculoInputPort.execute(command)
+OSInputPorts -> OSUseCase: OrdemDeServicoUseCase
+OSUseCase -> OSRepoPort: buscarPorId(osId)
+OSRepoPort --> OSUseCase: OrdemDeServico aguardando retirada
+OSUseCase -> Entrega: criar e entregar veículo
+OSUseCase -> EntregaRepoPort: salvar(entrega)
+EntregaRepoPort -> EntregaPersistence: salvar(entrega)
+EntregaPersistence -> DB: persistir entrega
+OSUseCase -> Encerramento: criar e encerrar
+OSUseCase -> EncerramentoRepoPort: salvar(encerramento)
+EncerramentoRepoPort -> EncerramentoPersistence: salvar(encerramento)
+EncerramentoPersistence -> DB: persistir encerramento
+OSUseCase -> OS: entregar()
+OSUseCase -> OSRepoPort: salvar(ordemDeServico)
+OSRepoPort -> OSPersistence: salvar(ordemDeServico)
+OSPersistence -> DB: status ENTREGUE
+OSUseCase --> OSController: OrdemServicoResult
+OSController --> RestApi: OrdemServicoResponse
+RestApi --> Atendente: 200 OK\nVeículo entregue
+Atendente --> ClienteExterno: entrega do veículo concluída
+
+== 11. Notificação informativa de status por e-mail ==
+
+note over OSUseCase, NotificacaoStatusUseCase
+Após cada transição válida e persistida da OS,
+o fluxo aciona uma notificação informativa ao cliente.
+Falha de e-mail é registrada em log e não desfaz a transição.
+end note
+
+OSUseCase -> NotificacaoStatusUseCase: execute(osId, numeroOS,\nstatus, clienteNome, clienteEmail)
+NotificacaoStatusUseCase -> EmailPort: enviar(e-mail com status atual\ne link publico de acompanhamento)
+EmailPort -> EmailAdapter: LOG, SMTP ou disabled\nconforme configuracao
+alt OFICINA_EMAIL_MODE=SMTP
+    EmailAdapter --> ClienteExterno: e-mail real com status da OS
+else OFICINA_EMAIL_MODE=LOG
+    EmailAdapter --> OSUseCase: notificacao registrada em log
+else OFICINA_EMAIL_ENABLED=false
+    EmailAdapter --> OSUseCase: notificacao ignorada de forma controlada
+end
+
+== Retorno resumido ==
+
+note over DB, Atendente
+Banco -> JpaEntity -> PersistenceMapper -> Domain -> UseCase -> Result -> WebMapper -> Response -> HTTP
+end note
+
+legend bottom
+|= De-Para de cores - Clean Architecture |= No projeto Oficina Mecânica DGCar |
+|<#FFF3B0> Enterprise Business Rules / Entities | `domain`: modelos, value objects e exceções puras de domínio. |
+|<#FFD1D1> Application Business Rules / Use Cases | `application`: commands, queries, ports e use cases. |
+|<#CCF4D6> Interface Adapters | `adapters/in/web` e `adapters/out`: controllers, mappers, persistence adapters, CEP e pagamento. |
+|<#D7F3FF> Frameworks & Drivers | Spring MVC, PostgreSQL, JPA, HTTP clients e serviços externos. |
+||
+|= Artefato |= Responsabilidade |
+| API REST / Spring MVC | Recebe HTTP/JSON e despacha para controllers. |
+| Controllers e WebMappers | Adaptam requests/responses para commands/results. |
+| InputPorts | Contratos de entrada consumidos pelos adapters de entrada. |
+| UseCases | Orquestram regras de aplicação, domínio e portas de saída. |
+| RepositoryPorts e GatewayPorts | Isolam persistência, CEP e pagamento. |
+| Domain | Mantém entidades, value objects e invariantes sem dependência de framework. |
+| PersistenceAdapters | Implementam portas de repositório usando JPA/Spring Data. |
+| MockPagamentoGatewayAdapter | Implementa `PagamentoGatewayPort` no fluxo atual. |
+endlegend
+
+@enduml
