@@ -10,7 +10,7 @@ Conteudo:
 - dicionario de dados;
 - indices de performance;
 - plano de cluster externo gerenciado;
-- relacao do banco com a API principal e a Lambda Auth CPF.
+- relacao do banco com a API principal e a Lambda Auth CPF + Senha.
 
 Documentos principais:
 

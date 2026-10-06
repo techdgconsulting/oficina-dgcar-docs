@@ -33,7 +33,7 @@ Na implementação, login e registro são liberados pela regra `PathPatternReque
 
 Esta ADR continua válida para a autenticação interna da oficina. Atendentes, mecânicos e gestores seguem autenticando por `/api/auth/login`, recebendo JWT interno com RBAC por perfil.
 
-No Tech Challenge 3, a autenticação externa do cliente por CPF é documentada como fluxo separado, com API Gateway e Lambda Auth CPF, conforme [`ADR-014`](./ADR-014-lambda-autenticacao-cliente-cpf.md) e [`RFC-002`](../RFCS/RFC-002-autenticacao-cpf-lambda.md). O token externo de cliente não deve carregar perfis internos como `ATENDENTE`, `MECANICO` ou `GESTOR`.
+No Tech Challenge 3, a autenticacao externa do cliente por CPF e senha foi documentada como fluxo separado, com API Gateway e Lambda Auth CPF + Senha, conforme [`ADR-014`](./ADR-014-lambda-autenticacao-cliente-cpf.md) e [`RFC-002`](../rfc/RFC-002-autenticacao-cpf-lambda.md). O token externo de cliente nao deve carregar perfis internos como `ATENDENTE`, `MECANICO` ou `GESTOR`.
 
 ### Rotas autenticadas com controle por perfil (RBAC)
 
@@ -113,4 +113,3 @@ var paths = PathPatternRequestMatcher.withDefaults();
 ```
 
 O `SanitizedErrorController` trata o fallback `/error` e retorna somente `timestamp`, `status` e `erro`. Campos como `path`, `error`, `exception`, `trace` e `message` não são expostos ao cliente. Detalhes técnicos permanecem restritos aos logs internos.
-

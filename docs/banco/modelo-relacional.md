@@ -22,7 +22,7 @@ O modelo relacional da Oficina DGCar representa o ciclo completo de atendimento 
 
 | Tabela | Campo | Finalidade |
 |---|---|---|
-| `clientes` | `documento` | CPF/CNPJ do cliente, usado pela Lambda Auth CPF |
+| `clientes` | `documento` | CPF/CNPJ do cliente, usado pela Lambda Auth CPF + Senha |
 | `clientes` | `senha_hash` | Hash bcrypt da senha do cliente externo |
 | `clientes` | `status_cliente` | Campo planejado para controle de acesso do cliente |
 | `ordens_servico` | `numero` | Numero legivel usado pelo cliente para consulta de OS |

@@ -28,7 +28,7 @@ O banco gerenciado foi definido como Amazon RDS PostgreSQL, provisionado por Ter
 Consumidores autorizados:
 
 - aplicacao Spring Boot no EKS;
-- Lambda Auth CPF em VPC;
+- Lambda Auth CPF + Senha em VPC;
 - pipelines apenas durante operacoes controladas.
 
 ## Terraform

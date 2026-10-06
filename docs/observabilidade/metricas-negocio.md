@@ -16,7 +16,7 @@ Metricas de negocio usadas para demonstrar visibilidade operacional.
 - Erros de envio de e-mail.
 - Erros no gateway de pagamento.
 - Erros em consulta ViaCEP.
-- Erros da Lambda Auth CPF.
+- Erros da Lambda Auth CPF + Senha.
 
 ## Autenticacao Externa
 

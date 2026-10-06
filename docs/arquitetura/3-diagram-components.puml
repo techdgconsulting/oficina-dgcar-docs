@@ -12,13 +12,15 @@ title Diagrama de Componentes — API Oficina Mecânica DGCar [C4 — Nível 3]
 Person(atendente, "Atendente", "Perfil ATENDENTE. Gerencia clientes, veículos, OS, orçamentos, pagamentos e entregas.")
 Person(mecanico, "Mecânico", "Perfil MECANICO. Executa diagnóstico, adiciona itens e finaliza serviços.")
 Person(gestor, "Gestor", "Perfil GESTOR. Acesso completo, incluindo cadastros, KPIs e operações administrativas.")
-Person(cliente, "Cliente", "Consulta status da OS sem login e aprova ou recusa orçamento por link público com token.")
+Person(cliente, "Cliente", "Autentica com CPF e senha, recebe JWT CLIENTE e consulta a propria OS por numero.")
 
+System_Ext(apiGateway, "Amazon API Gateway", "Entrada oficial para autenticacao externa e APIs protegidas.")
+System_Ext(lambdaAuth, "AWS Lambda Auth CPF + Senha", "Valida CPF, status e senha_hash do cliente, emitindo JWT externo tipo CLIENTE.")
 System_Ext(viacep, "ViaCEP API", "Serviço público para consulta de endereço por CEP.")
 System_Ext(gatewayExt, "Gateway de Pagamento", "Processa e autoriza pagamentos. No projeto, a integração é representada por adapter simulável.")
 System_Ext(emailCliente, "E-mail do Cliente", "Canal externo para notificações de orçamento e status da OS.")
 System_Ext(smtpServer, "Servidor SMTP", "Infraestrutura externa usada para envio real de e-mails quando OFICINA_EMAIL_MODE=SMTP.")
-ContainerDb(db, "PostgreSQL", "Banco de Dados Relacional", "Armazena clientes, veículos, OS, orçamentos, execuções, pagamentos, entregas, encerramentos, peças, serviços e usuários.")
+ContainerDb(db, "PostgreSQL", "Banco de Dados Relacional", "Armazena clientes, senha_hash, veiculos, OS, orcamentos, execucoes, pagamentos, entregas, encerramentos, pecas, servicos e usuarios.")
 
 Container_Boundary(api, "API Spring Boot — Oficina Mecânica") {
 
@@ -63,8 +65,9 @@ Container_Boundary(api, "API Spring Boot — Oficina Mecânica") {
     }
 
     Boundary(infrastructure, "Infrastructure") {
-        Component(securityConfig, "SecurityConfig", "infrastructure.security", "Configura autenticação stateless, autorização por perfil e rotas públicas.")
-        Component(jwtFilter, "JwtAuthenticationFilter", "infrastructure.security", "Valida Bearer Token nas requisições protegidas.")
+        Component(securityConfig, "SecurityConfig", "infrastructure.security", "Configura autenticacao stateless, autorizacao por perfil interno e rotas protegidas para JWT CLIENTE.")
+        Component(jwtFilter, "JwtAuthenticationFilter", "infrastructure.security", "Valida Bearer Token interno e JWT externo tipo CLIENTE nas requisicoes protegidas.")
+        Component(clienteSecurity, "ClienteSecurity", "infrastructure.security", "Confere se o CPF do JWT CLIENTE corresponde ao cliente da OS consultada.")
         Component(userDetails, "CustomUserDetailsService", "infrastructure.security", "Carrega usuários para autenticação Spring Security.")
         Component(appConfigs, "Configurações Spring e OpenAPI", "infrastructure.config/spring", "Configura beans, wiring dos use cases, RestTemplate e documentação OpenAPI.")
     }
@@ -77,7 +80,11 @@ Rel(mecanico, authCtrl, "Login", "JSON/HTTPS")
 Rel(mecanico, coreCtrls, "Diagnóstico, itens e finalização de serviço", "JSON/HTTPS")
 Rel(gestor, authCtrl, "Login e registro", "JSON/HTTPS")
 Rel(gestor, coreCtrls, "Acesso completo a cadastros, KPIs e OS", "JSON/HTTPS")
-Rel(cliente, coreCtrls, "Consulta status da OS e envia decisão de orçamento por token", "JSON/HTTPS")
+Rel(cliente, apiGateway, "Autentica por CPF + senha e consulta OS por numero", "JSON/HTTPS")
+Rel(apiGateway, lambdaAuth, "POST /auth/cpf", "AWS_PROXY")
+Rel(lambdaAuth, db, "Consulta cliente por documento, status e senha_hash", "SQL/TCP")
+Rel(apiGateway, coreCtrls, "Encaminha APIs protegidas com Bearer JWT CLIENTE", "JSON/HTTPS")
+Rel(cliente, coreCtrls, "Consulta status da propria OS por numero", "JSON/HTTPS")
 
 ' Fluxo de entrada
 Rel(authCtrl, webDtos, "Mapeia requests e responses")
@@ -130,6 +137,8 @@ Rel(emailAdapter, emailCliente, "Entrega notificacoes de orcamento e status", "E
 ' Infraestrutura transversal
 Rel(securityConfig, jwtFilter, "Registra filtro JWT")
 Rel(jwtFilter, securityAdapters, "Valida token por TokenProviderPort")
+Rel(jwtFilter, clienteSecurity, "Disponibiliza claims do JWT CLIENTE")
+Rel(clienteSecurity, coreCtrls, "Autoriza apenas recursos do CPF autenticado")
 Rel(userDetails, outputPorts, "Busca usuário por UsuarioRepositoryPort")
 Rel(appConfigs, useCases, "Configura wiring dos casos de uso")
 Rel(appConfigs, viaCepAdapter, "Fornece RestTemplate")

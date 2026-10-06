@@ -7,7 +7,7 @@ New Relic foi definido como ferramenta de observabilidade para centralizar metri
 - Aplicacao Spring Boot.
 - Cluster Kubernetes.
 - API Gateway.
-- Lambda Auth CPF.
+- Lambda Auth CPF + Senha.
 - Fluxos de negocio de ordens de servico.
 
 ## Sinais Monitorados

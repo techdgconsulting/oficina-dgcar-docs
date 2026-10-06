@@ -22,7 +22,7 @@ Adotar **Domain-Driven Design** como abordagem de modelagem e organização do c
 - **Adapters** em `adapters/in` e `adapters/out`, implementando entrada REST, persistência, segurança, ViaCEP, gateway de pagamento mock, e-mail e token seguro
 - **Linguagem Ubíqua** documentada e refletida no código
 
-O diagrama tático atualizado está em [`docs/diagramas/tactical-ddd.puml`](../diagramas/tactical-ddd.puml) e detalha os agregados, entidades, value objects, ports e relações principais entre esses contextos.
+O diagrama tatico atualizado esta em [`docs/arquitetura/tactical-ddd.puml`](../arquitetura/tactical-ddd.puml) e detalha os agregados, entidades, value objects, ports e relacoes principais entre esses contextos.
 
 ## Consequências
 

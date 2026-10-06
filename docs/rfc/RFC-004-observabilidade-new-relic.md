@@ -58,7 +58,7 @@ Usar New Relic como plataforma de observabilidade da arquitetura alvo.
 - Pod reiniciando repetidamente.
 - HPA no maximo por periodo prolongado.
 - Falha recorrente no processamento de ordens de servico.
-- Falha recorrente na Lambda Auth CPF.
+- Falha recorrente na Lambda Auth CPF + Senha.
 - Banco com conexoes proximas do limite.
 
 ## Logs Estruturados E Correlation-Id

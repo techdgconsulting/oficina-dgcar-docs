@@ -12,7 +12,7 @@ Resumo dos principais dados usados pela solucao.
 | `tipo_documento` | Tipo do documento |
 | `email` | E-mail de contato |
 | `telefone` | Telefone de contato |
-| `senha_hash` | Hash bcrypt usado na autenticacao externa por CPF e senha |
+| `senha_hash` | Hash bcrypt usado na autenticacao externa por CPF e senha. Senha em texto puro nao e armazenada. |
 | `status_cliente` | Campo planejado para status operacional do cliente |
 
 ## veiculos

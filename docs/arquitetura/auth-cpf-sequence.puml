@@ -9,27 +9,27 @@ skinparam ParticipantBackgroundColor #F3F4F6
 skinparam ActorBorderColor #374151
 skinparam ActorBackgroundColor #FFFFFF
 
-title Sequencia De Autenticacao Por CPF - Cliente Externo
+title Sequencia De Autenticacao Com CPF E Senha - Cliente Externo
 
 actor "Cliente externo" as Cliente
 participant "Amazon API Gateway\nEntrada oficial" as Gateway
-participant "AWS Lambda\nAuth CPF\nNode.js 20.x" as Lambda
+participant "AWS Lambda\nAuth CPF + Senha\nNode.js 20.x" as Lambda
 database "Amazon RDS\nPostgreSQL" as RDS
 participant "Aplicacao Spring Boot\noficina-dgcar-api\nEKS" as API
 database "PostgreSQL\nDados da API" as DB
 
 == Emissao do JWT de cliente ==
 
-Cliente -> Gateway: POST /auth/cpf\n{ cpf }
-Gateway -> Lambda: Invoca Lambda Auth CPF\ncom correlationId
+Cliente -> Gateway: POST /auth/cpf\n{ cpf, senha }
+Gateway -> Lambda: Invoca Lambda Auth CPF + Senha\ncom correlationId
 Lambda -> Lambda: Normaliza CPF
 Lambda -> Lambda: Valida formato e digitos
 
-alt CPF invalido
+alt CPF invalido ou senha ausente
     Lambda --> Gateway: 400\nErro sanitizado
-    Gateway --> Cliente: 400\nCPF invalido
+    Gateway --> Cliente: 400\nRequisicao invalida
 else CPF valido
-    Lambda -> RDS: SELECT cliente\nWHERE documento = cpf
+    Lambda -> RDS: SELECT id, documento, senha_hash, status\nFROM clientes WHERE documento = cpf
     alt Cliente inexistente
         RDS --> Lambda: vazio
         Lambda --> Gateway: 404\nErro sanitizado
@@ -39,43 +39,39 @@ else CPF valido
         Lambda --> Gateway: 403\nErro sanitizado
         Gateway --> Cliente: 403\nCliente sem acesso
     else Cliente ativo
-        RDS --> Lambda: clienteId, documento, status
-        Lambda -> Lambda: Gera JWT externo\nsub, clienteId, tipo=CLIENTE,\nstatus, iss, iat, exp
-        Lambda --> Gateway: 200\nBearer token
-        Gateway --> Cliente: 200\nJWT de cliente externo
+        RDS --> Lambda: clienteId, documento, senha_hash, status
+        Lambda -> Lambda: Compara senha recebida\ncom senha_hash usando bcrypt
+        alt Senha invalida
+            Lambda --> Gateway: 401\nErro sanitizado
+            Gateway --> Cliente: 401\nCredenciais invalidas
+        else Senha valida
+            Lambda -> Lambda: Gera JWT externo\nsub, clienteId, tipo=CLIENTE,\nstatus, iss, aud, iat, exp
+            Lambda --> Gateway: 200\nBearer token
+            Gateway --> Cliente: 200\nJWT de cliente externo
+        end
     end
 end
 
-== Consumo de API protegida ==
+== Uso posterior do JWT ==
 
-Cliente -> Gateway: GET /clientes/{clienteId}/ordens\nAuthorization: Bearer JWT
-Gateway -> Gateway: Valida token na borda\ne politica da rota
-
-alt Token invalido na borda
-    Gateway --> Cliente: 401/403
-else Token aceito na borda
-    Gateway -> API: Encaminha requisicao\ncom claims/correlationId
-    API -> API: Valida assinatura, iss, exp,\ntipo=CLIENTE e clienteId
-    alt Token invalido na aplicacao
-        API --> Gateway: 401/403
-        Gateway --> Cliente: 401/403
-    else Cliente autorizado ao proprio recurso
-        API -> DB: Consulta ordens do cliente
-        DB --> API: Ordens do cliente
-        API --> Gateway: 200\nDados autorizados
-        Gateway --> Cliente: 200\nResposta da API
-    else Cliente tenta acessar recurso de outro cliente
-        API --> Gateway: 403
-        Gateway --> Cliente: 403
-    end
-end
+Cliente -> Gateway: Chama API protegida\nAuthorization: Bearer JWT CLIENTE
+Gateway -> API: Encaminha requisicao autorizada\ncom correlationId
+API -> API: Valida JWT externo de cliente\nconforme ADR-018
+API --> Gateway: Resposta da rota protegida
+Gateway --> Cliente: Resposta da API
 
 note over Gateway,API
-  O JWT externo de cliente e validado no API Gateway
-  e novamente na aplicacao Spring Boot por defesa em profundidade.
+  Este diagrama evidencia a autenticacao e a emissao do JWT.
+  A consulta de OS por numero esta detalhada em
+  sequencia-consulta-os-cliente.puml.
 end note
 
 note over Lambda,RDS
+  CPF identifica o cliente, mas nao autentica sozinho.
+  A autenticacao externa exige senha validada contra senha_hash.
+end note
+
+note over Lambda,API
   A Lambda nao autentica usuarios internos.
   Atendentes, mecanicos e gestores continuam usando /api/auth/login.
 end note

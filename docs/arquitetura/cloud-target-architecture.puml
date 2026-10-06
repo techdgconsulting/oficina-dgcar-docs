@@ -11,12 +11,12 @@ left to right direction
 
 title Arquitetura Cloud Alvo - Oficina Mecanica DGCar
 
-actor "Cliente externo\nCPF" as cliente
+actor "Cliente externo\nCPF + senha" as cliente
 actor "Usuario interno\nOficina" as interno
 actor "Desenvolvedor /\nGitHub Actions" as devops
 
 cloud "GitHub" {
-  rectangle "Repo 1\noficina-dgcar-auth-lambda\nLambda Auth CPF" as repoLambda
+  rectangle "Repo 1\noficina-dgcar-auth-lambda\nLambda Auth CPF + Senha" as repoLambda
   rectangle "Repo 2\noficina-dgcar-infra-k8s\nInfra Kubernetes" as repoK8s
   rectangle "Repo 3\noficina-dgcar-infra-db\nInfra Banco" as repoDb
   rectangle "Repo 4\noficina-dgcar-api\nAplicacao Principal" as repoApp
@@ -25,7 +25,7 @@ cloud "GitHub" {
 
 cloud "AWS" {
   rectangle "Amazon API Gateway\nEntrada publica oficial" as apigw
-  rectangle "AWS Lambda\nAuth CPF" as lambda
+  rectangle "AWS Lambda\nAuth CPF + Senha" as lambda
   rectangle "Amazon ECR\nImagens Docker" as ecr
 
   package "VPC" {
@@ -42,11 +42,12 @@ cloud "New Relic" {
   rectangle "Alertas\nFalhas e gargalos" as nrAlerts
 }
 
-cliente --> apigw : 1. Solicita autenticacao\npor CPF
+cliente --> apigw : 1. Solicita autenticacao\npor CPF e senha
 apigw --> lambda : 2. Invoca Lambda Auth
-lambda --> rds : 3. Consulta cliente\npor CPF/status
-lambda --> apigw : 4. Retorna JWT\ncliente externo
-cliente --> apigw : 5. Consome APIs protegidas\nBearer JWT
+lambda --> rds : 3. Consulta cliente\npor CPF, status e senha_hash
+lambda --> lambda : 4. Compara senha\ncom bcrypt
+lambda --> apigw : 5. Retorna JWT\ncliente externo
+cliente --> apigw : 6. Consome APIs protegidas\nBearer JWT
 
 interno --> apigw : 1. Login interno\n/api/auth/login
 apigw --> k8s : 2. Roteia login para\naplicacao principal
@@ -84,7 +85,7 @@ note bottom of apigw
 end note
 
 note bottom of lambda
-  A Lambda valida CPF, consulta o cliente
+  A Lambda valida CPF e senha, consulta o cliente
   e emite token JWT apenas de cliente externo.
   Usuarios internos nao autenticam por esta Lambda.
 end note

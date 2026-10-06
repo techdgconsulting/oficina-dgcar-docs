@@ -192,15 +192,15 @@ Como o destroy remove o namespace Kubernetes `oficina`, tambem sao removidos `Co
 
 **Por que:**
 - a infraestrutura existente com AWS, Terraform, EKS, ECR, RDS, S3 e GitHub Actions continua sendo a base de evolucao;
-- o Tech Challenge 3 adiciona decisoes arquiteturais sobre API Gateway, Lambda Auth CPF, observabilidade, logs estruturados e separacao de responsabilidades;
+- o Tech Challenge 3 adiciona decisoes arquiteturais sobre API Gateway, Lambda Auth CPF + Senha, observabilidade, logs estruturados e separacao de responsabilidades;
 - separar as decisoes evita reescrever o historico da infraestrutura e preserva rastreabilidade incremental.
 
 **Documentos relacionados:**
-- [`ADR-013`](../ADRS/ADR-013-api-gateway-entrada-oficial.md): API Gateway como entrada oficial.
-- [`ADR-015`](../ADRS/ADR-015-hpa-cluster-autoscaling.md): HPA e estrategia de escalabilidade.
-- [`ADR-016`](../ADRS/ADR-016-logs-estruturados-correlation-id.md): logs estruturados e correlation-id.
-- [`ADR-017`](../ADRS/ADR-017-postgresql-gerenciado.md): PostgreSQL gerenciado.
-- [`RFC-005`](../RFCS/RFC-005-separacao-terraform-k8s-banco.md): separacao entre Terraform de Kubernetes e banco.
+- [`ADR-013`](../adr/ADR-013-api-gateway-entrada-oficial.md): API Gateway como entrada oficial.
+- [`ADR-015`](../adr/ADR-015-hpa-cluster-autoscaling.md): HPA e estrategia de escalabilidade.
+- [`ADR-016`](../adr/ADR-016-logs-estruturados-correlation-id.md): logs estruturados e correlation-id.
+- [`ADR-017`](../adr/ADR-017-postgresql-gerenciado.md): PostgreSQL gerenciado.
+- [`RFC-005`](../rfc/RFC-005-separacao-terraform-k8s-banco.md): separacao entre Terraform de Kubernetes e banco.
 
 ## Resumo
 A infraestrutura foi definida para ser segura, reprodutível, automatizada e compatível com uma execução real em AWS. As decisões priorizam a separação entre estado, configuração, deploy e segredos, além de reduzir riscos operacionais e custos. Esse conjunto de escolhas torna a aplicação mais adequada para o objetivo acadêmico, validação técnica e evolução futura.

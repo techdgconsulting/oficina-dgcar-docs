@@ -18,7 +18,7 @@ Este documento registra a consolidacao da arquitetura alvo da Oficina DGCar para
 
 ## Escopo Arquitetural
 
-A arquitetura final coloca o API Gateway como entrada oficial. A rota `POST /auth/cpf` chama a Lambda Auth CPF, que valida CPF e senha, consulta o PostgreSQL e emite JWT externo com `tipo=CLIENTE`.
+A arquitetura final coloca o API Gateway como entrada oficial. A rota `POST /auth/cpf` chama a Lambda Auth CPF + Senha, que valida CPF e senha, consulta o PostgreSQL e emite JWT externo com `tipo=CLIENTE`.
 
 A aplicacao Spring Boot roda no EKS e valida tambem o JWT externo por defesa em profundidade. O cliente externo consulta sua OS pelo numero legivel, e a API compara o CPF da OS com o `sub` do token.
 
@@ -28,7 +28,7 @@ O banco PostgreSQL foi movido para Amazon RDS gerenciado, com acesso privado e r
 
 - Quatro repositorios tecnicos criados e protegidos.
 - Terraform de banco separado do Terraform de Kubernetes.
-- Lambda Auth CPF e senha implementada.
+- Lambda Auth CPF + Senha implementada.
 - API Gateway integrado a Lambda e a API no EKS.
 - JWT externo de cliente validado pela API.
 - Documentacao arquitetural centralizada neste repositorio.

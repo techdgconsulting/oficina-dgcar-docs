@@ -25,7 +25,7 @@ Recursos gerenciados:
 - criptografia de storage;
 - acesso privado restrito por security group.
 
-## Relacao Com A Lambda Auth CPF
+## Relacao Com A Lambda Auth CPF + Senha
 
 A Lambda `oficina-dgcar-auth-lambda` consulta a tabela `clientes` para:
 
