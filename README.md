@@ -72,16 +72,17 @@ O ambiente academico foi operado com provisionamento manual protegido por GitHub
 
 A ordem operacional para subir o ambiente em `homolog` ficou definida assim:
 
-1. `oficina-dgcar-infra-k8s`: executar `Infra K8s` com `action=apply` para criar a base de rede, EKS, ECR e API Gateway.
-2. `oficina-dgcar-infra-db`: executar `Infra DB` com `action=apply` para criar o RDS PostgreSQL usando VPC e subnets publicadas pelo repo de Kubernetes.
-3. `oficina-dgcar-auth-lambda`: executar `Auth CPF Lambda` com `action=apply-infra` para criar a Lambda, IAM, Log Group e security group.
+1. `oficina-dgcar-infra-k8s`: executar `Infra K8s` com `action=apply` para criar rede, EKS, ECR e API Gateway base, ainda sem rotas dependentes da Lambda ou da aplicacao.
+2. `oficina-dgcar-infra-db`: executar `Infra DB` com `action=apply` para criar o RDS PostgreSQL na rede publicada pelo repo Kubernetes.
+3. `oficina-dgcar-auth-lambda`: executar `Auth CPF Lambda` com `action=apply-infra` para criar a Lambda Auth CPF + Senha, IAM, Log Group e security group.
 4. `oficina-dgcar-infra-db`: executar novo `apply` para liberar o PostgreSQL ao security group publicado pela Lambda.
-5. `oficina-dgcar-infra-k8s`: executar novo `apply` para conectar o API Gateway a Lambda na rota `POST /auth/cpf`.
-6. `oficina-dgcar-auth-lambda`: executar `Auth CPF Lambda` com `action=deploy-code` para publicar o pacote da funcao.
+5. `oficina-dgcar-auth-lambda`: executar `Auth CPF Lambda` com `action=deploy-code` para publicar o pacote da funcao.
+6. `oficina-dgcar-infra-k8s`: executar novo `apply` para criar ou atualizar a integracao `POST /auth/cpf` do API Gateway com a Lambda.
 7. `oficina-dgcar-api`: executar `App CI/CD - Build, Test and Deploy` com `action=deploy` para publicar a aplicacao no EKS.
-8. `oficina-dgcar-infra-k8s`: executar novo `apply` quando o `API_BACKEND_URL` da aplicacao estiver disponivel, conectando a rota proxy `ANY /{proxy+}` ao backend Kubernetes.
+8. `oficina-dgcar-infra-k8s`: registrar `API_BACKEND_URL` no environment `homolog` com o endpoint HTTP publicado pelo Service da API.
+9. `oficina-dgcar-infra-k8s`: executar novo `apply` para criar a rota proxy `ANY /{proxy+}` apontando para o backend Kubernetes.
 
-Essa ordem respeita as dependencias entre repositorios: a Lambda precisa da rede e do banco; o banco precisa conhecer o security group da Lambda; o Gateway precisa conhecer os outputs da Lambda e o endpoint HTTP da aplicacao.
+Essa ordem respeita as dependencias entre repositorios: a Lambda precisa da rede e do banco; o banco precisa conhecer o security group da Lambda; o Gateway precisa conhecer os outputs da Lambda para `/auth/cpf`; e a rota proxy da API depende do endpoint HTTP publicado depois do deploy da aplicacao.
 
 ### Validacao Funcional
 
