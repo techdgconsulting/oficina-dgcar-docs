@@ -1,0 +1,169 @@
+name: Destruir Ambiente Academico
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        required: true
+        default: "homolog"
+        type: choice
+        options:
+          - homolog
+          - prod
+      confirm:
+        description: "Type DESTRUIR to confirm"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  destruir:
+    name: destruir-${{ inputs.environment }}
+    if: inputs.confirm == 'DESTRUIR'
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+
+    env:
+      AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
+      GH_TOKEN: ${{ secrets.GH_AUTOMATION_TOKEN }}
+      INFRA_K8S_REPO: techdgconsulting/oficina-dgcar-infra-k8s
+      INFRA_DB_REPO: techdgconsulting/oficina-dgcar-infra-db
+      AUTH_LAMBDA_REPO: techdgconsulting/oficina-dgcar-auth-lambda
+      API_REPO: techdgconsulting/oficina-dgcar-api
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate orchestration credentials
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::GH_AUTOMATION_TOKEN ausente no environment ${{ inputs.environment }} do repo oficina-dgcar-docs."
+            exit 1
+          fi
+
+          bash scripts/aws/validate-aws-credentials.sh
+
+      - name: Resolve VPC before teardown
+        id: vpc
+        run: |
+          vpc_id="$(bash scripts/aws/find-environment-vpc.sh "${{ inputs.environment }}")"
+          echo "vpc_id=$vpc_id" >> "$GITHUB_OUTPUT"
+          echo "VPC alvo: ${vpc_id:-nao encontrada}"
+
+      - name: Remove Kubernetes workloads and load balancers
+        run: |
+          bash scripts/github-actions/dispatch-workflow.sh \
+            --repo "$INFRA_K8S_REPO" \
+            --workflow destroy.yml \
+            --ref main \
+            --field action=cleanup-workloads \
+            --field environment=${{ inputs.environment }} \
+            --field confirm_destroy=DESTROY
+
+          bash scripts/github-actions/wait-workflow.sh \
+            --repo "$INFRA_K8S_REPO" \
+            --workflow destroy.yml \
+            --timeout-seconds 3600
+
+      - name: Destroy managed PostgreSQL
+        run: |
+          bash scripts/github-actions/dispatch-workflow.sh \
+            --repo "$INFRA_DB_REPO" \
+            --workflow terraform.yml \
+            --ref main \
+            --field action=destroy \
+            --field environment=${{ inputs.environment }} \
+            --field confirm_destroy=DESTROY
+
+          bash scripts/github-actions/wait-workflow.sh \
+            --repo "$INFRA_DB_REPO" \
+            --workflow terraform.yml \
+            --timeout-seconds 7200
+
+      - name: Destroy Auth CPF Lambda
+        run: |
+          bash scripts/github-actions/dispatch-workflow.sh \
+            --repo "$AUTH_LAMBDA_REPO" \
+            --workflow ci.yml \
+            --ref main \
+            --field action=destroy-infra \
+            --field environment=${{ inputs.environment }} \
+            --field confirm_destroy=DESTROY
+
+          bash scripts/github-actions/wait-workflow.sh \
+            --repo "$AUTH_LAMBDA_REPO" \
+            --workflow ci.yml \
+            --timeout-seconds 7200
+
+      - name: Wait for managed ENI release
+        if: steps.vpc.outputs.vpc_id != ''
+        run: sleep 180
+
+      - name: Diagnose VPC dependencies before final destroy
+        if: steps.vpc.outputs.vpc_id != ''
+        run: bash scripts/aws/collect-vpc-dependencies.sh "${{ steps.vpc.outputs.vpc_id }}"
+
+      - name: Cleanup removable VPC dependencies
+        if: steps.vpc.outputs.vpc_id != ''
+        run: bash scripts/aws/cleanup-vpc-dependencies.sh "${{ steps.vpc.outputs.vpc_id }}"
+
+      - name: Destroy Kubernetes infrastructure
+        id: destroy_k8s
+        continue-on-error: true
+        run: |
+          bash scripts/github-actions/dispatch-workflow.sh \
+            --repo "$INFRA_K8S_REPO" \
+            --workflow destroy.yml \
+            --ref main \
+            --field action=destroy \
+            --field environment=${{ inputs.environment }} \
+            --field confirm_destroy=DESTROY
+
+          bash scripts/github-actions/wait-workflow.sh \
+            --repo "$INFRA_K8S_REPO" \
+            --workflow destroy.yml \
+            --timeout-seconds 7200
+
+      - name: Retry final VPC cleanup after failed destroy
+        if: steps.destroy_k8s.outcome != 'success' && steps.vpc.outputs.vpc_id != ''
+        run: |
+          bash scripts/aws/collect-vpc-dependencies.sh "${{ steps.vpc.outputs.vpc_id }}"
+          bash scripts/aws/cleanup-vpc-dependencies.sh "${{ steps.vpc.outputs.vpc_id }}"
+
+          bash scripts/github-actions/dispatch-workflow.sh \
+            --repo "$INFRA_K8S_REPO" \
+            --workflow destroy.yml \
+            --ref main \
+            --field action=destroy \
+            --field environment=${{ inputs.environment }} \
+            --field confirm_destroy=DESTROY
+
+          bash scripts/github-actions/wait-workflow.sh \
+            --repo "$INFRA_K8S_REPO" \
+            --workflow destroy.yml \
+            --timeout-seconds 7200
+
+      - name: Assert AWS environment is clean
+        run: bash scripts/aws/assert-environment-destroyed.sh "${{ inputs.environment }}"
+
+      - name: Publish teardown summary
+        if: always()
+        run: |
+          {
+            echo "## Teardown Academico"
+            echo ""
+            echo "| Item | Valor |"
+            echo "|---|---|"
+            echo "| Environment | ${{ inputs.environment }} |"
+            echo "| VPC alvo | ${{ steps.vpc.outputs.vpc_id || 'nao encontrada' }} |"
+            echo "| Resultado | ${{ job.status }} |"
+          } >> "$GITHUB_STEP_SUMMARY"

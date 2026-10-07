@@ -1,0 +1,210 @@
+name: Provisionar Ambiente Academico
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        required: true
+        default: "homolog"
+        type: choice
+        options:
+          - homolog
+          - prod
+      confirm:
+        description: "Type PROVISIONAR to confirm"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  provisionar:
+    name: provisionar-${{ inputs.environment }}
+    if: inputs.confirm == 'PROVISIONAR'
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+
+    env:
+      AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
+      GH_TOKEN: ${{ secrets.GH_AUTOMATION_TOKEN }}
+      ORG: techdgconsulting
+      INFRA_K8S_REPO: techdgconsulting/oficina-dgcar-infra-k8s
+      INFRA_DB_REPO: techdgconsulting/oficina-dgcar-infra-db
+      AUTH_LAMBDA_REPO: techdgconsulting/oficina-dgcar-auth-lambda
+      API_REPO: techdgconsulting/oficina-dgcar-api
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate orchestration credentials
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::GH_AUTOMATION_TOKEN ausente no environment ${{ inputs.environment }} do repo oficina-dgcar-docs."
+            exit 1
+          fi
+
+          bash scripts/aws/validate-aws-credentials.sh
+
+          for repo in "$INFRA_K8S_REPO" "$INFRA_DB_REPO" "$AUTH_LAMBDA_REPO" "$API_REPO"; do
+            gh repo view "$repo" >/dev/null
+            echo "Acesso GitHub validado para $repo."
+          done
+
+      - name: Provision base network, EKS, ECR and API Gateway
+        run: |
+          bash scripts/github-actions/dispatch-workflow.sh \
+            --repo "$INFRA_K8S_REPO" \
+            --workflow ci.yml \
+            --ref main \
+            --field action=apply \
+            --field environment=${{ inputs.environment }}
+
+          bash scripts/github-actions/wait-workflow.sh \
+            --repo "$INFRA_K8S_REPO" \
+            --workflow ci.yml \
+            --timeout-seconds 7200
+
+      - name: Provision managed PostgreSQL
+        run: |
+          bash scripts/github-actions/dispatch-workflow.sh \
+            --repo "$INFRA_DB_REPO" \
+            --workflow terraform.yml \
+            --ref main \
+            --field action=apply \
+            --field environment=${{ inputs.environment }}
+
+          bash scripts/github-actions/wait-workflow.sh \
+            --repo "$INFRA_DB_REPO" \
+            --workflow terraform.yml \
+            --timeout-seconds 7200
+
+      - name: Provision Auth CPF Lambda infrastructure
+        run: |
+          bash scripts/github-actions/dispatch-workflow.sh \
+            --repo "$AUTH_LAMBDA_REPO" \
+            --workflow ci.yml \
+            --ref main \
+            --field action=apply-infra \
+            --field environment=${{ inputs.environment }}
+
+          bash scripts/github-actions/wait-workflow.sh \
+            --repo "$AUTH_LAMBDA_REPO" \
+            --workflow ci.yml \
+            --timeout-seconds 7200
+
+      - name: Reapply database access after Lambda security group publication
+        run: |
+          bash scripts/github-actions/dispatch-workflow.sh \
+            --repo "$INFRA_DB_REPO" \
+            --workflow terraform.yml \
+            --ref main \
+            --field action=apply \
+            --field environment=${{ inputs.environment }}
+
+          bash scripts/github-actions/wait-workflow.sh \
+            --repo "$INFRA_DB_REPO" \
+            --workflow terraform.yml \
+            --timeout-seconds 7200
+
+      - name: Deploy Lambda function code
+        run: |
+          bash scripts/github-actions/dispatch-workflow.sh \
+            --repo "$AUTH_LAMBDA_REPO" \
+            --workflow ci.yml \
+            --ref main \
+            --field action=deploy-code \
+            --field environment=${{ inputs.environment }}
+
+          bash scripts/github-actions/wait-workflow.sh \
+            --repo "$AUTH_LAMBDA_REPO" \
+            --workflow ci.yml \
+            --timeout-seconds 3600
+
+      - name: Apply API Gateway Lambda route
+        run: |
+          bash scripts/github-actions/dispatch-workflow.sh \
+            --repo "$INFRA_K8S_REPO" \
+            --workflow ci.yml \
+            --ref main \
+            --field action=apply \
+            --field environment=${{ inputs.environment }}
+
+          bash scripts/github-actions/wait-workflow.sh \
+            --repo "$INFRA_K8S_REPO" \
+            --workflow ci.yml \
+            --timeout-seconds 7200
+
+      - name: Deploy Spring Boot API on EKS
+        run: |
+          bash scripts/github-actions/dispatch-workflow.sh \
+            --repo "$API_REPO" \
+            --workflow app-cd.yml \
+            --ref main \
+            --field environment=${{ inputs.environment }}
+
+          bash scripts/github-actions/wait-workflow.sh \
+            --repo "$API_REPO" \
+            --workflow app-cd.yml \
+            --timeout-seconds 7200
+
+      - name: Apply API Gateway proxy route
+        run: |
+          bash scripts/github-actions/dispatch-workflow.sh \
+            --repo "$INFRA_K8S_REPO" \
+            --workflow ci.yml \
+            --ref main \
+            --field action=apply \
+            --field environment=${{ inputs.environment }}
+
+          bash scripts/github-actions/wait-workflow.sh \
+            --repo "$INFRA_K8S_REPO" \
+            --workflow ci.yml \
+            --timeout-seconds 7200
+
+      - name: Resolve API Gateway endpoint
+        id: gateway
+        run: |
+          set -euo pipefail
+          api_name="oficina-dgcar-${{ inputs.environment }}-api-gateway"
+          endpoint="$(aws apigatewayv2 get-apis \
+            --region "$AWS_REGION" \
+            --query "Items[?Name=='$api_name'].ApiEndpoint | [0]" \
+            --output text)"
+
+          if [ -z "$endpoint" ] || [ "$endpoint" = "None" ]; then
+            echo "::error::API Gateway $api_name nao encontrado."
+            exit 1
+          fi
+
+          echo "base_url=$endpoint" >> "$GITHUB_OUTPUT"
+          echo "API Gateway: $endpoint"
+
+      - name: Run smoke tests
+        env:
+          GATEWAY_BASE_URL: ${{ steps.gateway.outputs.base_url }}
+          CLIENT_TEST_CPF: ${{ secrets.CLIENT_TEST_CPF }}
+          CLIENT_TEST_PASSWORD: ${{ secrets.CLIENT_TEST_PASSWORD }}
+          CLIENT_TEST_OS_NUMBER: ${{ secrets.CLIENT_TEST_OS_NUMBER }}
+        run: bash scripts/smoke/smoke-tests.sh
+
+      - name: Publish provision summary
+        if: always()
+        run: |
+          {
+            echo "## Provisionamento Academico"
+            echo ""
+            echo "| Item | Valor |"
+            echo "|---|---|"
+            echo "| Environment | ${{ inputs.environment }} |"
+            echo "| API Gateway | ${{ steps.gateway.outputs.base_url || 'nao resolvido' }} |"
+            echo "| Auth CPF | ${{ steps.gateway.outputs.base_url || 'nao resolvido' }}/auth/cpf |"
+            echo "| Smoke tests | ${{ job.status }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
