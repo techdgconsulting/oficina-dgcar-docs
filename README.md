@@ -49,6 +49,7 @@ Componentes principais:
 | Banco de dados | [docs/banco](docs/banco) |
 | Observabilidade | [docs/observabilidade](docs/observabilidade) |
 | Infraestrutura e operacao | [docs/infraestrutura](docs/infraestrutura) |
+| Operacao do ambiente academico | [docs/operacao/ambiente-academico.md](docs/operacao/ambiente-academico.md) |
 | Evidencias e roteiro de apresentacao | [docs/evidencias](docs/evidencias) |
 | Evolucao do projeto | [CHANGELOG.md](CHANGELOG.md) |
 
@@ -66,23 +67,19 @@ A documentacao arquitetural foi centralizada neste repositorio para reunir decis
 
 ## Operacao Do Ambiente AWS
 
-O ambiente academico foi operado com provisionamento manual protegido por GitHub Environments. Essa decisao evita criacao acidental de recursos pagos e preserva aprovacao humana antes de qualquer `apply`, deploy ou destroy.
+O ambiente academico e operado por workflows orquestrados no repositorio `oficina-dgcar-docs`. A aprovacao humana continua protegida pelos GitHub Environments, e a sequencia entre os quatro repositorios tecnicos fica automatizada.
 
 ### Provisionamento Completo
 
-A ordem operacional para subir o ambiente em `homolog` ficou definida assim:
+Executar no repositorio `oficina-dgcar-docs`:
 
-1. `oficina-dgcar-infra-k8s`: executar `Infra K8s` com `action=apply` para criar rede, EKS, ECR e API Gateway base, ainda sem rotas dependentes da Lambda ou da aplicacao.
-2. `oficina-dgcar-infra-db`: executar `Infra DB` com `action=apply` para criar o RDS PostgreSQL na rede publicada pelo repo Kubernetes.
-3. `oficina-dgcar-auth-lambda`: executar `Auth CPF Lambda` com `action=apply-infra` para criar a Lambda Auth CPF + Senha, IAM, Log Group e security group.
-4. `oficina-dgcar-infra-db`: executar novo `apply` para liberar o PostgreSQL ao security group publicado pela Lambda.
-5. `oficina-dgcar-auth-lambda`: executar `Auth CPF Lambda` com `action=deploy-code` para publicar o pacote da funcao.
-6. `oficina-dgcar-infra-k8s`: executar novo `apply` para criar ou atualizar a integracao `POST /auth/cpf` do API Gateway com a Lambda.
-7. `oficina-dgcar-api`: executar `App CI/CD - Build, Test and Deploy` com `action=deploy` para publicar a aplicacao no EKS.
-8. `oficina-dgcar-infra-k8s`: registrar `API_BACKEND_URL` no environment `homolog` com o endpoint HTTP publicado pelo Service da API.
-9. `oficina-dgcar-infra-k8s`: executar novo `apply` para criar a rota proxy `ANY /{proxy+}` apontando para o backend Kubernetes.
+```text
+Actions -> Provisionar Ambiente Academico
+environment=homolog
+confirm=PROVISIONAR
+```
 
-Essa ordem respeita as dependencias entre repositorios: a Lambda precisa da rede e do banco; o banco precisa conhecer o security group da Lambda; o Gateway precisa conhecer os outputs da Lambda para `/auth/cpf`; e a rota proxy da API depende do endpoint HTTP publicado depois do deploy da aplicacao.
+O workflow provisiona rede, EKS, ECR, API Gateway, RDS PostgreSQL, Lambda Auth CPF + Senha, aplicacao no EKS, rota `POST /auth/cpf`, rota proxy `ANY /{proxy+}` e smoke tests.
 
 ### Validacao Funcional
 
@@ -96,14 +93,17 @@ Depois do provisionamento, a validacao demonstravel usa:
 
 ### Teardown Completo
 
-A ordem operacional para destruir o ambiente academico ficou definida assim:
+Executar no repositorio `oficina-dgcar-docs`:
 
-1. `oficina-dgcar-api`: remover workloads da aplicacao ou executar o fluxo de deploy/limpeza disponivel para retirar pods, service e Load Balancer.
-2. `oficina-dgcar-auth-lambda`: executar destroy da infraestrutura da Lambda quando a action estiver disponivel, removendo Lambda, Log Group, IAM e security group.
-3. `oficina-dgcar-infra-k8s`: executar `Destroy Infra K8s` com `confirm_destroy=DESTROY` para remover EKS, API Gateway, ECR, VPC, subnets, rotas e recursos Kubernetes auxiliares.
-4. `oficina-dgcar-infra-db`: executar destroy do RDS PostgreSQL por ultimo, removendo a instancia, subnet group, parameter group e security group do banco.
+```text
+Actions -> Destruir Ambiente Academico
+environment=homolog
+confirm=DESTRUIR
+```
 
-O banco fica por ultimo porque API e Lambda dependem dele durante validacoes. O repo `infra-k8s` executa limpeza especifica de Load Balancers e security groups orfaos antes de destruir a VPC, reduzindo falhas por dependencia presa na AWS.
+O workflow remove workloads Kubernetes, Load Balancers, RDS PostgreSQL, Lambda Auth CPF + Senha, API Gateway, EKS, VPC e dependencias residuais conhecidas. O teardown valida que VPC, EKS, RDS, Lambda e API Gateway nao permanecem na AWS.
+
+O procedimento operacional completo fica documentado em [docs/operacao/ambiente-academico.md](docs/operacao/ambiente-academico.md).
 
 ## Fonte De Verdade
 
