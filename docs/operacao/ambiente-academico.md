@@ -18,18 +18,27 @@ Configurar os secrets abaixo no environment `homolog` do repositorio `oficina-dg
 | Secret | Uso |
 |---|---|
 | `GH_AUTOMATION_TOKEN` | Dispara workflows e consulta execucoes nos repositorios tecnicos |
-| `AWS_ACCESS_KEY_ID` | Valida e consulta recursos AWS durante a orquestracao |
-| `AWS_SECRET_ACCESS_KEY` | Valida e consulta recursos AWS durante a orquestracao |
-| `AWS_REGION` | Regiao AWS usada pelos workflows, com `us-east-1` como padrao operacional |
-| `CLIENT_TEST_CPF` | CPF usado nos smoke tests |
-| `CLIENT_TEST_PASSWORD` | Senha do cliente usada nos smoke tests |
-| `CLIENT_TEST_OS_NUMBER` | Numero de OS usado nos smoke tests |
 
 O token `GH_AUTOMATION_TOKEN` precisa de permissao para:
 
 - disparar workflows nos repositorios tecnicos;
 - consultar execucoes de workflows;
 - gravar secrets de environment quando os workflows tecnicos publicam outputs.
+
+As credenciais AWS permanecem nos environments dos repositorios tecnicos. O orquestrador nao duplica `AWS_ACCESS_KEY_ID` nem `AWS_SECRET_ACCESS_KEY`; ele dispara os workflows que ja possuem essas credenciais.
+
+## Secrets Da Validacao Funcional
+
+Os secrets abaixo sao usados somente quando o input `run_smoke_tests=true` e existe massa de dados no banco.
+
+| Secret | Uso |
+|---|---|
+| `GATEWAY_BASE_URL` | URL do API Gateway usada pelos smoke tests |
+| `CLIENT_TEST_CPF` | CPF de cliente existente no banco |
+| `CLIENT_TEST_PASSWORD` | Senha desse cliente |
+| `CLIENT_TEST_OS_NUMBER` | Numero de OS pertencente ao CPF autenticado |
+
+O provisionamento de infraestrutura nao depende desses valores.
 
 ## Provisionamento Completo
 
@@ -39,6 +48,7 @@ Execucao:
 Actions -> Provisionar Ambiente Academico
 environment=homolog
 confirm=PROVISIONAR
+run_smoke_tests=false
 ```
 
 Fluxo executado:
@@ -53,7 +63,7 @@ Fluxo executado:
 8. Executa `oficina-dgcar-api` com workflow `App CI/CD - Build, Test and Deploy`, publicando a aplicacao no EKS.
 9. Executa novo apply do `oficina-dgcar-infra-k8s`, criando a rota proxy `ANY /{proxy+}`.
 10. Resolve o endpoint do API Gateway.
-11. Executa smoke tests:
+11. Executa smoke tests quando `run_smoke_tests=true`:
     - autenticacao por CPF e senha;
     - consulta protegida por numero de OS com JWT;
     - bloqueio de consulta sem JWT.

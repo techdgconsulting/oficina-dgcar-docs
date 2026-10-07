@@ -27,7 +27,6 @@ jobs:
     environment: ${{ inputs.environment }}
 
     env:
-      AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
       GH_TOKEN: ${{ secrets.GH_AUTOMATION_TOKEN }}
       INFRA_K8S_REPO: techdgconsulting/oficina-dgcar-infra-k8s
       INFRA_DB_REPO: techdgconsulting/oficina-dgcar-infra-db
@@ -39,9 +38,6 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Validate orchestration credentials
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: |
           set -euo pipefail
 
@@ -50,14 +46,10 @@ jobs:
             exit 1
           fi
 
-          bash scripts/aws/validate-aws-credentials.sh
-
-      - name: Resolve VPC before teardown
-        id: vpc
-        run: |
-          vpc_id="$(bash scripts/aws/find-environment-vpc.sh "${{ inputs.environment }}")"
-          echo "vpc_id=$vpc_id" >> "$GITHUB_OUTPUT"
-          echo "VPC alvo: ${vpc_id:-nao encontrada}"
+          for repo in "$INFRA_K8S_REPO" "$INFRA_DB_REPO" "$AUTH_LAMBDA_REPO" "$API_REPO"; do
+            gh repo view "$repo" >/dev/null
+            echo "Acesso GitHub validado para $repo."
+          done
 
       - name: Remove Kubernetes workloads and load balancers
         run: |
@@ -105,16 +97,7 @@ jobs:
             --timeout-seconds 7200
 
       - name: Wait for managed ENI release
-        if: steps.vpc.outputs.vpc_id != ''
         run: sleep 180
-
-      - name: Diagnose VPC dependencies before final destroy
-        if: steps.vpc.outputs.vpc_id != ''
-        run: bash scripts/aws/collect-vpc-dependencies.sh "${{ steps.vpc.outputs.vpc_id }}"
-
-      - name: Cleanup removable VPC dependencies
-        if: steps.vpc.outputs.vpc_id != ''
-        run: bash scripts/aws/cleanup-vpc-dependencies.sh "${{ steps.vpc.outputs.vpc_id }}"
 
       - name: Destroy Kubernetes infrastructure
         id: destroy_k8s
@@ -133,12 +116,9 @@ jobs:
             --workflow destroy.yml \
             --timeout-seconds 7200
 
-      - name: Retry final VPC cleanup after failed destroy
-        if: steps.destroy_k8s.outcome != 'success' && steps.vpc.outputs.vpc_id != ''
+      - name: Retry final infrastructure destroy
+        if: steps.destroy_k8s.outcome != 'success'
         run: |
-          bash scripts/aws/collect-vpc-dependencies.sh "${{ steps.vpc.outputs.vpc_id }}"
-          bash scripts/aws/cleanup-vpc-dependencies.sh "${{ steps.vpc.outputs.vpc_id }}"
-
           bash scripts/github-actions/dispatch-workflow.sh \
             --repo "$INFRA_K8S_REPO" \
             --workflow destroy.yml \
@@ -152,9 +132,6 @@ jobs:
             --workflow destroy.yml \
             --timeout-seconds 7200
 
-      - name: Assert AWS environment is clean
-        run: bash scripts/aws/assert-environment-destroyed.sh "${{ inputs.environment }}"
-
       - name: Publish teardown summary
         if: always()
         run: |
@@ -164,6 +141,6 @@ jobs:
             echo "| Item | Valor |"
             echo "|---|---|"
             echo "| Environment | ${{ inputs.environment }} |"
-            echo "| VPC alvo | ${{ steps.vpc.outputs.vpc_id || 'nao encontrada' }} |"
+            echo "| Diagnostico AWS | executado pelo workflow Destroy Infra K8s |"
             echo "| Resultado | ${{ job.status }} |"
           } >> "$GITHUB_STEP_SUMMARY"

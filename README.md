@@ -69,6 +69,8 @@ A documentacao arquitetural foi centralizada neste repositorio para reunir decis
 
 O ambiente academico e operado por workflows orquestrados no repositorio `oficina-dgcar-docs`. A aprovacao humana continua protegida pelos GitHub Environments, e a sequencia entre os quatro repositorios tecnicos fica automatizada.
 
+O orquestrador usa `GH_AUTOMATION_TOKEN` para acionar workflows nos repositorios tecnicos. As credenciais AWS permanecem nos environments dos repositorios que executam Terraform, Lambda e deploy da aplicacao.
+
 ### Provisionamento Completo
 
 Executar no repositorio `oficina-dgcar-docs`:
@@ -77,9 +79,10 @@ Executar no repositorio `oficina-dgcar-docs`:
 Actions -> Provisionar Ambiente Academico
 environment=homolog
 confirm=PROVISIONAR
+run_smoke_tests=false
 ```
 
-O workflow provisiona rede, EKS, ECR, API Gateway, RDS PostgreSQL, Lambda Auth CPF + Senha, aplicacao no EKS, rota `POST /auth/cpf`, rota proxy `ANY /{proxy+}` e smoke tests.
+O workflow provisiona rede, EKS, ECR, API Gateway, RDS PostgreSQL, Lambda Auth CPF + Senha, aplicacao no EKS, rota `POST /auth/cpf` e rota proxy `ANY /{proxy+}`. A validacao funcional com CPF, senha e numero de OS roda somente quando `run_smoke_tests=true`.
 
 ### Validacao Funcional
 
