@@ -62,7 +62,7 @@ while [ "$SECONDS" -lt "$deadline" ]; do
     --event workflow_dispatch \
     --limit 10 \
     --json databaseId \
-    -q ".[] | select((.databaseId | tostring) != \"$previous_run_id\") | .databaseId" | head -n 1)"
+    -q ".[] | select(.databaseId > (${previous_run_id:-0} | tonumber)) | .databaseId" | head -n 1)"
 
   if [ -n "$run_id" ]; then
     break
