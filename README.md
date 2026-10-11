@@ -37,7 +37,7 @@ Componentes principais:
 - Aplicacao Spring Boot executada em Amazon EKS.
 - Amazon RDS PostgreSQL como banco gerenciado.
 - Terraform separado para banco e Kubernetes.
-- GitHub Actions com validacao em PR e deploy manual protegido por environment.
+- GitHub Actions com validacao em PR e deploy automatico por branch protegida.
 - New Relic definido para metricas, logs, traces, dashboards e alertas.
 
 ## Navegacao Centralizada
@@ -134,7 +134,9 @@ Documento principal:
 
 ## Entregas Consolidadas
 
-A solucao foi reorganizada em quatro repositorios tecnicos, cada um com responsabilidade clara, Pull Requests obrigatorios, branch principal protegida e environments separados para homologacao e producao.
+A solucao foi reorganizada em quatro repositorios tecnicos, cada um com responsabilidade clara, Pull Requests obrigatorios, branches protegidas e environments separados para homologacao e producao.
+
+O fluxo oficial de promocao e `feature/* -> PR -> homolog -> deploy automatico homolog -> PR -> main -> deploy automatico producao`. As branches `homolog` e `main` nao recebem commits diretos.
 
 A infraestrutura foi separada em dois fluxos Terraform independentes: um para o banco PostgreSQL gerenciado e outro para Kubernetes, ECR e API Gateway. A Lambda de autenticacao externa foi implementada em repositorio proprio, com provisionamento AWS tambem descrito por Terraform.
 
@@ -146,20 +148,20 @@ A documentacao arquitetural foi centralizada neste repositorio para reunir decis
 
 ## Operacao Do Ambiente AWS
 
-O ambiente academico e operado pelo repositorio `oficina-dgcar-infra-k8s`, que centraliza o provisionamento e o teardown de homologacao. A aprovacao humana continua protegida pelos GitHub Environments, e a sequencia entre infraestrutura, banco, Lambda e aplicacao foi automatizada a partir da esteira de infraestrutura.
+O ambiente academico e operado pelo repositorio `oficina-dgcar-infra-k8s`, que centraliza o provisionamento e o teardown de homologacao e producao. A aprovacao humana continua protegida pelos GitHub Environments, e a sequencia entre infraestrutura, banco, Lambda e aplicacao foi automatizada a partir da esteira de infraestrutura.
 
 O workflow central usa `GH_AUTOMATION_TOKEN` para acionar as execucoes dependentes nos demais repositorios. As credenciais AWS permanecem nos environments dos repositorios tecnicos que executam Terraform, Lambda e deploy da aplicacao.
 
 ### Provisionamento Completo
 
-Executar no repositorio `oficina-dgcar-infra-k8s`:
+Execucao automatica:
 
 ```text
-Actions -> Provisionar Ambiente Homolog
-environment=homolog
-confirm=PROVISIONAR
-run_smoke_tests=false
+feature/* -> PR -> homolog -> provisionamento/deploy homolog
+homolog -> PR -> main -> provisionamento/deploy prod
 ```
+
+Os workflows tambem mantem `workflow_dispatch` para reprocessamento operacional controlado.
 
 O workflow provisiona rede, EKS, ECR, API Gateway, RDS PostgreSQL, Lambda Auth CPF + Senha, aplicacao no EKS, rota `POST /auth/cpf` e rota proxy `ANY /{proxy+}`. A validacao funcional com CPF, senha e numero de OS roda somente quando `run_smoke_tests=true`.
 

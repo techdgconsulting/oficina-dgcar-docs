@@ -66,7 +66,7 @@ Cada repositorio deve possuir pipeline propria com:
 
 - validacao em Pull Request;
 - deploy automatico de homologacao;
-- deploy automatico ou controlado de producao;
+- deploy automatico de producao a partir de `main`, protegido por GitHub Environment;
 - secrets por ambiente;
 - logs de execucao preservados como evidencia.
 

@@ -12,7 +12,7 @@ skinparam activity {
   DiamondBorderColor #047857
 }
 
-title Esteira De Deploy - Validacoes, Aprovacoes E Promocao
+title Esteira De Deploy - Branches Protegidas, Homolog E Producao
 
 start
 
@@ -21,7 +21,7 @@ partition "Desenvolvedor" {
   :Abre Pull Request para homolog;
 }
 
-partition "CI / Pull Request" {
+partition "CI / Pull Request Para Homolog" {
   :Executar testes automatizados;
   :Executar validacoes de build;
   :Executar validacoes de infraestrutura quando aplicavel;
@@ -29,7 +29,7 @@ partition "CI / Pull Request" {
 }
 
 if (Checks aprovados?) then (sim)
-  partition "Revisao" {
+  partition "Revisao Homolog" {
     :Revisao obrigatoria do Pull Request;
     :Resolver comentarios;
     :Merge em homolog;
@@ -39,22 +39,22 @@ else (nao)
   stop
 endif
 
-partition "Deploy Homolog" {
-  :Acionar pipeline do repositorio alterado;
-  :Carregar secrets do environment homolog;
+partition "Deploy Automatico Homolog" {
+  :Push em homolog dispara workflow;
+  :Carregar secrets e variaveis do environment homolog;
   :Build e publicacao de artefato;
   if (Repositorio?) then (API)
     :Build Maven e imagem Docker;
-    :Push da imagem no ECR;
+    :Push da imagem no ECR homolog;
     :Deploy da aplicacao no EKS homolog;
   elseif (Lambda)
     :Testes Node.js;
     :Empacotar Lambda;
-    :Publicar funcao Auth CPF + Senha em homolog;
+    :Atualizar codigo da funcao em homolog;
   elseif (Infra DB)
-    :Terraform plan/apply do RDS homolog;
+    :Terraform apply do RDS homolog;
   else (Infra K8s)
-    :Terraform plan/apply de EKS, ECR, Gateway e manifests homolog;
+    :Terraform apply de EKS, ECR, Gateway e manifests homolog;
   endif
   :Executar validacoes pos-deploy;
 }
@@ -67,21 +67,18 @@ if (Homolog aprovado?) then (sim)
     :Merge em main;
   }
 else (nao)
-  :Corrigir em nova branch e repetir ciclo;
+  :Corrigir em nova feature branch e repetir ciclo;
   stop
 endif
 
-partition "GitHub Environment prod" {
-  :Solicitar aprovacao manual de producao;
+partition "Deploy Automatico Producao" {
+  :Push em main dispara workflow;
+  :GitHub Environment prod solicita aprovacao;
   :Aguardar aprovadores autorizados;
   :Carregar secrets e variaveis de prod;
-}
-
-partition "Deploy Producao" {
-  :Executar pipeline com parametros de prod;
   :Publicar artefato ou aplicar Terraform em prod;
   :Executar validacoes pos-deploy;
-  :Registrar evidencias de execucao no GitHub Actions;
+  :Registrar evidencias no GitHub Actions;
 }
 
 stop
