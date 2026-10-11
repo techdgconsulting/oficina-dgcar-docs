@@ -1,6 +1,6 @@
 # RFC-005: Separacao Do Terraform De Kubernetes E Banco
 
-**Status:** Proposto  
+**Status:** Aceito  
 **Data:** 2026-09-27  
 **Contexto:** Tech Challenge - Infraestrutura como Codigo  
 **Escopo:** Estados Terraform e dependencias entre repositorios

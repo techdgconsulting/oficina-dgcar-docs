@@ -1,87 +1,183 @@
 @startuml
 hide circle
 skinparam linetype ortho
+skinparam shadowing false
+
+title Diagrama ER - Oficina DGCar
 
 entity "clientes" as clientes {
   * id : bigint
   --
-  nome : varchar
-  documento : varchar
-  tipo_documento : varchar
-  email : varchar
-  telefone : varchar
-  senha_hash : varchar
-  status_cliente : varchar
+  documento : varchar(18) <<unique>>
+  tipo_documento : varchar(4)
+  nome : varchar(255)
+  telefone : varchar(20)
+  email : varchar(255)
+  cep : varchar(9)
+  logradouro : varchar(255)
+  bairro : varchar(255)
+  cidade : varchar(255)
+  uf : varchar(2)
+  senha_hash : varchar(255)
+  status_cliente : varchar(20)
 }
 
 entity "veiculos" as veiculos {
   * id : bigint
   --
-  cliente_id : bigint
-  placa : varchar
-  marca : varchar
-  modelo : varchar
+  placa : varchar(7) <<unique>>
+  marca : varchar(100)
+  modelo : varchar(100)
   ano : integer
+  cliente_id : bigint <<FK>>
+}
+
+entity "usuarios" as usuarios {
+  * id : bigint
+  --
+  username : varchar(100) <<unique>>
+  password : varchar(255)
+  role : varchar(20)
+}
+
+entity "servicos" as servicos {
+  * id : bigint
+  --
+  nome : varchar(255)
+  descricao : text
+  valor_unitario : numeric(12,2)
+  tempo_estimado_minutos : integer
+}
+
+entity "pecas" as pecas {
+  * id : bigint
+  --
+  nome : varchar(255)
+  descricao : text
+  quantidade_estoque : integer
+  estoque_minimo : integer
+  valor_unitario : numeric(12,2)
 }
 
 entity "ordens_servico" as ordens {
   * id : bigint
   --
-  numero : varchar
-  cliente_id : bigint
-  veiculo_id : bigint
-  status : varchar
+  numero : varchar(20) <<unique>>
+  status : varchar(30)
   data_criacao : timestamp
   data_finalizacao : timestamp
+  atendente_nome : varchar(150)
+  cliente_id : bigint <<FK>>
+  veiculo_id : bigint <<FK>>
 }
 
 entity "itens_os" as itens {
   * id : bigint
   --
-  ordem_servico_id : bigint
-  tipo : varchar
-  referencia_id : bigint
-  descricao : varchar
+  tipo : varchar(10)
+  descricao : varchar(255)
   quantidade : integer
-  valor_unitario : numeric
+  valor_unitario : numeric(12,2)
+  referencia_id : bigint
+  estoque_reduzido : boolean
+  ordem_servico_id : bigint <<FK>>
+}
+
+entity "diagnosticos" as diagnosticos {
+  * id : bigint
+  --
+  descricao_problema : text
+  data_diagnostico : timestamp
+  status : varchar(20)
+}
+
+entity "execucoes" as execucoes {
+  * id : bigint
+  --
+  ordem_servico_id : bigint <<FK>>
+  diagnostico_id : bigint <<FK>>
+  status : varchar(30)
+  data_inicio : timestamp
+  data_fim : timestamp
+  mecanico_nome : varchar(150)
 }
 
 entity "orcamentos" as orcamentos {
   * id : bigint
   --
-  ordem_servico_id : bigint
-  status : varchar
-  valor_total : numeric
+  ordem_servico_id : bigint <<FK>>
+  status : varchar(20)
+  valor_total : numeric(12,2)
   data_criacao : timestamp
+  data_validade : timestamp
+  data_aprovacao : timestamp
 }
 
 entity "orcamento_decisao_cliente" as decisoes {
   * id : bigint
   --
-  ordem_servico_id : bigint
-  orcamento_id : bigint
-  token_hash : varchar
-  status : varchar
+  orcamento_id : bigint <<FK>>
+  ordem_servico_id : bigint <<FK>>
+  token_hash : varchar(64) <<unique>>
+  status : varchar(20)
+  data_criacao : timestamp
   data_expiracao : timestamp
+  data_decisao : timestamp
+  email_destino : varchar(180)
 }
 
 entity "pagamentos" as pagamentos {
   * id : bigint
   --
-  ordem_servico_id : bigint
-  status : varchar
-  metodo_pagamento : varchar
-  valor : numeric
-  transaction_id : varchar
+  ordem_servico_id : bigint <<FK>>
+  status : varchar(20)
+  metodo_pagamento : varchar(20)
+  valor : numeric(12,2)
+  data_pagamento : timestamp
+  transaction_id : varchar(60)
+  gateway_mensagem : varchar(255)
 }
 
-clientes ||--o{ veiculos
-clientes ||--o{ ordens
-veiculos ||--o{ ordens
-ordens ||--o{ itens
-ordens ||--o| orcamentos
-ordens ||--o| pagamentos
-orcamentos ||--o{ decisoes
-ordens ||--o{ decisoes
+entity "entregas" as entregas {
+  * id : bigint
+  --
+  ordem_servico_id : bigint <<FK>>
+  status : varchar(30)
+  data_entrega : timestamp
+  observacoes : text
+}
+
+entity "encerramentos" as encerramentos {
+  * id : bigint
+  --
+  ordem_servico_id : bigint <<FK>>
+  status : varchar(20)
+  data_encerramento : timestamp
+}
+
+clientes ||--o{ veiculos : possui
+clientes ||--o{ ordens : abre
+veiculos ||--o{ ordens : recebe
+
+ordens ||--o{ itens : contem
+ordens ||--o{ execucoes : acompanha
+diagnosticos ||--o{ execucoes : detalha
+ordens ||--o{ orcamentos : gera
+ordens ||--o{ pagamentos : cobra
+ordens ||--o{ entregas : libera
+ordens ||--o{ encerramentos : encerra
+
+orcamentos ||--o{ decisoes : solicita
+ordens ||--o{ decisoes : referencia
+
+servicos ||..o{ itens : referencia_id quando tipo=SERVICO
+pecas ||..o{ itens : referencia_id quando tipo=PECA
+
+note right of itens
+  referencia_id e polimorfico:
+  aponta para servicos.id quando tipo=SERVICO
+  ou para pecas.id quando tipo=PECA.
+  Nao ha FK fisica para essas duas tabelas.
+end note
 
 @enduml

@@ -1,0 +1,88 @@
+@startuml deploy-pipeline-flow
+!theme plain
+skinparam backgroundColor #F8FAFC
+skinparam shadowing false
+skinparam ArrowColor #1F2937
+skinparam defaultTextAlignment center
+skinparam activity {
+  BackgroundColor #FFFFFF
+  BorderColor #1F2937
+  FontColor #111827
+  DiamondBackgroundColor #ECFDF5
+  DiamondBorderColor #047857
+}
+
+title Esteira De Deploy - Validacoes, Aprovacoes E Promocao
+
+start
+
+partition "Desenvolvedor" {
+  :Cria feature branch;
+  :Abre Pull Request para homolog;
+}
+
+partition "CI / Pull Request" {
+  :Executar testes automatizados;
+  :Executar validacoes de build;
+  :Executar validacoes de infraestrutura quando aplicavel;
+  :Publicar resultado dos checks;
+}
+
+if (Checks aprovados?) then (sim)
+  partition "Revisao" {
+    :Revisao obrigatoria do Pull Request;
+    :Resolver comentarios;
+    :Merge em homolog;
+  }
+else (nao)
+  :Bloquear merge;
+  stop
+endif
+
+partition "Deploy Homolog" {
+  :Acionar pipeline do repositorio alterado;
+  :Carregar secrets do environment homolog;
+  :Build e publicacao de artefato;
+  if (Repositorio?) then (API)
+    :Build Maven e imagem Docker;
+    :Push da imagem no ECR;
+    :Deploy da aplicacao no EKS homolog;
+  elseif (Lambda)
+    :Testes Node.js;
+    :Empacotar Lambda;
+    :Publicar funcao Auth CPF + Senha em homolog;
+  elseif (Infra DB)
+    :Terraform plan/apply do RDS homolog;
+  else (Infra K8s)
+    :Terraform plan/apply de EKS, ECR, Gateway e manifests homolog;
+  endif
+  :Executar validacoes pos-deploy;
+}
+
+if (Homolog aprovado?) then (sim)
+  partition "Promocao Para Producao" {
+    :Abrir Pull Request de homolog para main;
+    :Executar checks novamente;
+    :Revisao e aprovacao obrigatoria;
+    :Merge em main;
+  }
+else (nao)
+  :Corrigir em nova branch e repetir ciclo;
+  stop
+endif
+
+partition "GitHub Environment prod" {
+  :Solicitar aprovacao manual de producao;
+  :Aguardar aprovadores autorizados;
+  :Carregar secrets e variaveis de prod;
+}
+
+partition "Deploy Producao" {
+  :Executar pipeline com parametros de prod;
+  :Publicar artefato ou aplicar Terraform em prod;
+  :Executar validacoes pos-deploy;
+  :Registrar evidencias de execucao no GitHub Actions;
+}
+
+stop
+@enduml

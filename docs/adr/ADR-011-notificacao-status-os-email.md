@@ -7,7 +7,7 @@
 
 ## Contexto
 
-O requisito de acompanhamento da Ordem de Serviço prevê que o cliente seja informado sobre a situação atual da OS. O projeto já possui consulta de status por API, incluindo consulta pública pelo número da OS, mas também é necessário oferecer comunicação ativa ao cliente por uma ferramenta como e-mail.
+O requisito de acompanhamento da Ordem de Serviço prevê que o cliente seja informado sobre a situação atual da OS. O projeto já possui consulta de status por API com JWT e validação de propriedade por CPF, mas também é necessário oferecer comunicação ativa ao cliente por uma ferramenta como e-mail.
 
 A funcionalidade deve respeitar a Clean Architecture atual, sem colocar envio SMTP dentro dos controllers ou das entidades de domínio, e sem tornar a evolução de status dependente da disponibilidade do servidor de e-mail.
 
@@ -20,7 +20,7 @@ O envio é acionado pelos casos de uso de OS após a transição ser validada e 
 - número da OS;
 - status atual;
 - mensagem textual amigável;
-- link público para acompanhamento por número da OS.
+- link protegido para acompanhamento por número da OS.
 
 A infraestrutura de envio passa a ter três modos configuráveis:
 
@@ -97,4 +97,4 @@ Quando esse limite e atingido, notificacoes de status podem falhar sem bloquear 
 
 ## Relação com Requisitos
 
-Esta ADR atende ao RF41 da especificação de requisitos e complementa o RF28, que trata da consulta pública de status da OS.
+Esta ADR atende ao RF41 da especificação de requisitos e complementa o RF28, que trata da consulta autenticada de status da OS.

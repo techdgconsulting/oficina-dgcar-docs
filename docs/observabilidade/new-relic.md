@@ -20,7 +20,7 @@ New Relic foi definido como ferramenta de observabilidade para centralizar metri
 - Healthchecks e uptime.
 - Falhas em pagamento, notificacao e integracoes.
 
-## Integracoes Previstas
+## Integracoes De Observabilidade
 
 - Agente Java na API Spring Boot.
 - Coleta de logs JSON.

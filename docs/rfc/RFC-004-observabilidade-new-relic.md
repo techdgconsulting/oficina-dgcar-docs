@@ -1,6 +1,6 @@
 # RFC-004: Observabilidade Com New Relic
 
-**Status:** Proposto  
+**Status:** Aceito  
 **Data:** 2026-09-27  
 **Contexto:** Tech Challenge - Monitoramento e Observabilidade  
 **Escopo:** Aplicacao, Kubernetes, API Gateway e Lambda

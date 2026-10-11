@@ -29,7 +29,7 @@ alt CPF invalido ou senha ausente
     Lambda --> Gateway: 400\nErro sanitizado
     Gateway --> Cliente: 400\nRequisicao invalida
 else CPF valido
-    Lambda -> RDS: SELECT id, documento, senha_hash, status\nFROM clientes WHERE documento = cpf
+    Lambda -> RDS: SELECT id, documento, senha_hash, status_cliente\nFROM clientes WHERE documento = cpf
     alt Cliente inexistente
         RDS --> Lambda: vazio
         Lambda --> Gateway: 404\nErro sanitizado
@@ -39,7 +39,7 @@ else CPF valido
         Lambda --> Gateway: 403\nErro sanitizado
         Gateway --> Cliente: 403\nCliente sem acesso
     else Cliente ativo
-        RDS --> Lambda: clienteId, documento, senha_hash, status
+        RDS --> Lambda: clienteId, documento, senha_hash, status_cliente
         Lambda -> Lambda: Compara senha recebida\ncom senha_hash usando bcrypt
         alt Senha invalida
             Lambda --> Gateway: 401\nErro sanitizado

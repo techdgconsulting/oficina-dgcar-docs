@@ -1,8 +1,16 @@
-@startuml
+@startuml sequencia-consulta-os-cliente
+title Sequencia De Consulta De OS Pelo Cliente
+
 actor Cliente
 participant "API Gateway" as Gateway
 participant "API Spring Boot" as API
 database "RDS PostgreSQL" as DB
+
+note over Cliente, Gateway
+  O JWT CLIENTE usado nesta consulta e emitido no fluxo
+  auth-cpf-sequence.puml por API Gateway + Lambda Auth CPF + Senha.
+  Este diagrama mostra apenas o consumo da API protegida.
+end note
 
 Cliente -> Gateway: GET /api/ordens-servico/numero/{numero}\nAuthorization: Bearer JWT CLIENTE
 Gateway -> API: Encaminha requisicao protegida

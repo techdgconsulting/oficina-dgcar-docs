@@ -1,4 +1,4 @@
-# ADR-014: Lambda Para Autenticacao Externa De Cliente Com CPF E Senha
+# ADR-014: Emissao De JWT De Cliente Pela Lambda Auth CPF E Senha
 
 **Status:** Aceito  
 **Data:** 2026-09-27  
@@ -12,9 +12,11 @@ A aplicacao possui autenticacao JWT para usuarios internos da oficina, baseada e
 
 CPF e usado como identificador do cliente, mas nao como credencial unica. A autenticacao externa implementada exige CPF e senha. A senha e comparada com o hash bcrypt armazenado em `clientes.senha_hash`.
 
+Esta ADR trata da autenticacao do cliente externo e da emissao do JWT `CLIENTE`. A validacao posterior desse token no API Gateway e na aplicacao Spring Boot esta fora do escopo desta decisao e fica registrada na [`ADR-018`](./ADR-018-validacao-jwt-cliente-externo.md).
+
 ## Decisao
 
-Foi criada uma Lambda dedicada para autenticacao externa de cliente com CPF e senha.
+Foi criada uma Lambda dedicada para autenticar cliente externo com CPF e senha e emitir JWT externo com `tipo=CLIENTE`.
 
 A Lambda e responsavel por:
 
@@ -37,9 +39,7 @@ O projeto possui dois tipos de identidade:
 | Usuario interno | Aplicacao principal | Operacoes da oficina com perfis `ATENDENTE`, `MECANICO` e `GESTOR` |
 | Cliente externo | Lambda Auth CPF + Senha | Jornadas do cliente usando CPF, senha e token de cliente |
 
-O token de cliente externo nao concede permissoes administrativas ou operacionais.
-
-A validacao posterior do JWT no API Gateway e na aplicacao Spring Boot foi registrada separadamente na [`ADR-018`](./ADR-018-validacao-jwt-cliente-externo.md). Esta ADR limita a decisao da Lambda a autenticacao do cliente externo e emissao do token.
+O token de cliente externo nao concede permissoes administrativas ou operacionais. A autorizacao de chamadas protegidas usando esse token e decisao separada, descrita na [`ADR-018`](./ADR-018-validacao-jwt-cliente-externo.md).
 
 ## Claims Do JWT Externo
 
@@ -81,7 +81,7 @@ Registros legados podem existir sem senha hash. Esses registros precisam receber
 - Necessidade de gerenciar segredo de assinatura JWT.
 - Necessidade de manter `senha_hash` para clientes externos.
 - Risco de enumeracao de CPF se respostas nao forem bem sanitizadas.
-- Exige atualizacao da aplicacao para reconhecer token de cliente externo.
+- Exige integracao posterior com os validadores de token descritos na `ADR-018`.
 
 ## Alternativas Consideradas
 
@@ -97,4 +97,4 @@ Registros legados podem existir sem senha hash. Esses registros precisam receber
 - `RFC-002`: detalha o fluxo de autenticacao externa com CPF e senha.
 - `ADR-013`: define API Gateway como entrada oficial.
 - `ADR-004`: documenta JWT stateless interno.
-- `ADR-018`: define validacao do JWT externo de cliente no API Gateway e na aplicacao.
+- `ADR-018`: define validacao e autorizacao do JWT externo de cliente no API Gateway e na aplicacao.

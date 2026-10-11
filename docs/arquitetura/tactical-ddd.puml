@@ -1,5 +1,5 @@
 @startuml bounded-contexts-internos
-title Bounded Contexts — Estrutura Interna (Visão Tática DDD)
+title Bounded Contexts - Estrutura Interna Da Aplicacao (Visao Tatica DDD)
 
 skinparam packageStyle rectangle
 skinparam classFontSize 11
@@ -12,6 +12,9 @@ skinparam packageFontSize 12
 skinparam packageFontStyle bold
 
 hide empty members
+
+' Diagrama tatico interno da aplicacao Spring Boot.
+' Nao representa a topologia cloud nem o fluxo API Gateway + Lambda.
 
 ' ─────────────────────────────────────────────────────────────────────────────
 ' BC ATENDIMENTO — Core Subdomain
@@ -31,6 +34,8 @@ package "BC Atendimento  <<Core Subdomain>>" #D5E8D4 {
     - uf : String
     ..
     + atualizar(nome : String, telefone : String, email : String)
+    + atualizarSenhaHash(senhaHash : String)
+    + atualizarStatusCliente(statusCliente : String)
     + preencherEndereco(cep : String, logradouro : String, bairro : String, cidade : String, uf : String)
   }
 
@@ -91,6 +96,9 @@ package "BC Atendimento  <<Core Subdomain>>" #D5E8D4 {
     ViaCepEnderecoAdapter <<ACL>>
     (adapters/out/viacep)
     usando ViaCepClient em infrastructure/client
+
+    senhaHash e statusCliente suportam
+    a autenticacao externa via Lambda.
   end note
 }
 
@@ -190,6 +198,8 @@ package "Application - Abertura de OS" #FFFFFF {
     - nome : String
     - telefone : String
     - email : String
+    - senhaHash : String
+    - statusCliente : String
     - cep : String
     - logradouro : String
     - bairro : String
@@ -643,11 +653,26 @@ package "BC Autenticação e Segurança  <<Generic Subdomain>>" #FFE0FF {
     + gerarToken(username : String, role : String) : String
     + extrairUsername(token : String) : String
     + extrairRole(token : String) : String
+    + extrairClienteId(token : String) : Long
     + isTokenValido(token : String) : boolean
+  }
+
+  class JwtAuthenticationFilter <<Security Filter>> {
+    + doFilterInternal(request, response, chain)
+  }
+
+  class ClienteSecurity <<Security Service>> {
+    + isClienteDoToken(clienteId : Long) : boolean
+    + isClienteAutenticado() : boolean
+    + isDocumentoDoToken(documento : String) : boolean
   }
 
   Usuario --> PerfilUsuario : usa
   UsuarioRepositoryPort ..> Usuario : persiste
+  PasswordHasherPort ..> Usuario : gera e valida hash
+  TokenProviderPort ..> Usuario : gera JWT interno
+  JwtAuthenticationFilter ..> TokenProviderPort : valida JWT interno e JWT CLIENTE
+  ClienteSecurity ..> TokenProviderPort : usa claims do cliente autenticado
 }
 
 ' ─────────────────────────────────────────────────────────────────────────────
@@ -729,5 +754,12 @@ legend right
   |<back:#D0E0FF> Supporting </back>| Necessário, não diferencial — EST, SVC, FI, EN, EC |
   |<back:#FFE0FF> Generic    </back>| Suporte transversal — ViaCEP, Gateway Pgto, Auth/JWT |
 endlegend
+
+note right of JwtAuthenticationFilter
+  A API Spring Boot valida JWT interno
+  e tambem reconhece JWT externo CLIENTE.
+  A emissao do JWT CLIENTE ocorre fora
+  deste diagrama, na Lambda Auth CPF + Senha.
+end note
 
 @enduml

@@ -12,19 +12,27 @@ skinparam actorBackgroundColor #DAEEFF
 skinparam participantBackgroundColor #FFFFFF
 skinparam participantBorderColor #888888
 
-title Fluxo JWT Interno com Perfis RBAC - Oficina Mecânica DGCar
+title Fluxo JWT Interno E RBAC - API Spring Boot Via API Gateway
 
-actor "Usuário\n(qualquer perfil)" as usr
-actor "Cliente\n(público)" as cli
+actor "Usuario interno\nATENDENTE / MECANICO / GESTOR" as usr
+actor "Cliente\nlink publico" as cli
 
 note over usr, cli #EFF8EF
   Este diagrama descreve o JWT interno usado por
   ATENDENTE, MECANICO e GESTOR.
 
+  Todo trafego externo chega pelo API Gateway.
+  O Gateway encaminha /api/** para a API Spring Boot;
+  a validacao do JWT interno e do RBAC ocorre na API.
+
   O JWT externo tipo CLIENTE e emitido pela Lambda
   Auth CPF + Senha e segue fluxo proprio em
   auth-cpf-sequence.puml e sequencia-consulta-os-cliente.puml.
+
+  A Lambda Auth CPF + Senha nao participa deste fluxo.
 end note
+
+participant "Amazon API Gateway\nANY /{proxy+}" as gateway
 
 box "adapters/in/web" #CCF4D6
     participant "AuthController\n/api/auth/**" as auth
@@ -71,7 +79,8 @@ database "PostgreSQL\norcamento_decisao_cliente" as decisaoDb
 == 1. Registro - validação de perfil e hash de senha ==
 ' ============================================================================
 
-usr -> auth : POST /api/auth/registro\nRegistroRequest
+usr -> gateway : POST /api/auth/registro\nRegistroRequest
+gateway -> auth : Encaminha para API Spring Boot
 auth -> auth : @Valid\nusername, password, role
 auth -> mapper : toCommand(request)
 mapper --> auth : RegistrarUsuarioCommand
@@ -100,7 +109,8 @@ usuarioAdapter --> registrarUseCase : Usuario
 registrarUseCase --> auth : UsuarioResult
 auth -> mapper : toResponse(result)
 mapper --> auth : UsuarioResponse
-auth --> usr : 201 Created\nUsuario criado com sucesso
+auth --> gateway : 201 Created\nUsuario criado com sucesso
+gateway --> usr : 201 Created
 
 note right of perfil
   Perfil inválido é rejeitado pelo domínio
@@ -111,7 +121,8 @@ end note
 == 2. Login - autenticação e geração do token ==
 ' ============================================================================
 
-usr -> auth : POST /api/auth/login\nLoginRequest
+usr -> gateway : POST /api/auth/login\nLoginRequest
+gateway -> auth : Encaminha para API Spring Boot
 auth -> auth : @Valid\nusername, password
 auth -> mapper : toCommand(request)
 mapper --> auth : LoginCommand
@@ -136,7 +147,8 @@ jwtAdapter --> loginUseCase : token assinado
 loginUseCase --> auth : LoginResult(token, username, role)
 auth -> mapper : toResponse(result)
 mapper --> auth : LoginResponse
-auth --> usr : 200 OK\n{token, username, role}
+auth --> gateway : 200 OK\n{token, username, role}
+gateway --> usr : 200 OK\n{token, username, role}
 
 note over usr
   Cada request protegida envia:
@@ -147,7 +159,8 @@ end note
 == 3. Request autenticado - perfil lido do JWT ==
 ' ============================================================================
 
-usr -> filt : PATCH /api/ordens-servico/{id}/iniciar-diagnostico\nAuthorization: Bearer <token>
+usr -> gateway : PATCH /api/ordens-servico/{id}/iniciar-diagnostico\nAuthorization: Bearer <token>
+gateway -> filt : Encaminha /api/** para API Spring Boot
 filt -> filt : extrai header Authorization
 filt -> tokenPort : extrairUsername(token)
 tokenPort -> jwtAdapter : extrairUsername(token)
@@ -167,7 +180,8 @@ filt -> sec : filterChain.doFilter(request)
 
 sec -> sec : PathPatternRequestMatcher:\nPATCH /api/ordens-servico/*/iniciar-diagnostico\nhasAnyRole("MECANICO", "GESTOR")
 sec -> sec : ROLE_MECANICO permitido
-sec --> usr : 200 OK\nDiagnóstico iniciado
+sec --> gateway : 200 OK\nDiagnostico iniciado
+gateway --> usr : 200 OK
 
 note over filt #EFF8EF
   O filtro não consulta o banco para autorização.
@@ -178,18 +192,21 @@ end note
 == 4. Request sem token - 401 Unauthorized ==
 ' ============================================================================
 
-usr -> filt : GET /api/pecas\nsem Authorization
+usr -> gateway : GET /api/pecas\nsem Authorization
+gateway -> filt : Encaminha /api/** para API Spring Boot
 filt -> filt : authHeader == null\nsegue a cadeia sem autenticar
 filt -> sec : filterChain.doFilter(request)
 sec -> sec : anyRequest().authenticated()\nSecurityContext vazio
 sec -> sec : authenticationEntryPoint\nJSON sanitizado
-sec --> usr : 401 Unauthorized\n{status, erro}
+sec --> gateway : 401 Unauthorized\n{status, erro}
+gateway --> usr : 401 Unauthorized\n{status, erro}
 
 ' ============================================================================
 == 5. Perfil insuficiente - 403 Forbidden ==
 ' ============================================================================
 
-usr -> filt : GET /api/pecas\nAuthorization: Bearer <token MECANICO>
+usr -> gateway : GET /api/pecas\nAuthorization: Bearer <token MECANICO>
+gateway -> filt : Encaminha /api/** para API Spring Boot
 filt -> tokenPort : extrairUsername + isTokenValido + extrairRole
 tokenPort -> jwtAdapter : parse e valida claims
 jwtAdapter --> filt : MECANICO
@@ -206,13 +223,15 @@ note over sec #FFE0E0
   e tambem remove path, error, exception e trace.
 end note
 
-sec --> usr : 403 Forbidden\n{status, erro}
+sec --> gateway : 403 Forbidden\n{status, erro}
+gateway --> usr : 403 Forbidden\n{status, erro}
 
 ' ============================================================================
 == 6. Request público com token opaco - decisão externa de orçamento ==
 ' ============================================================================
 
-cli -> filt : POST /api/orcamentos/decisoes-cliente/{token}/aprovar\nsem Authorization
+cli -> gateway : POST /api/orcamentos/decisoes-cliente/{token}/aprovar\nsem Authorization
+gateway -> filt : Encaminha /api/** para API Spring Boot
 filt -> filt : authHeader == null\nsegue a cadeia sem autenticar
 filt -> sec : filterChain.doFilter(request)
 sec -> sec : PathPatternRequestMatcher:\nPOST /api/orcamentos/decisoes-cliente/*/aprovar\npermitAll()
@@ -229,7 +248,8 @@ decisaoRepoPort --> decisaoUseCase : decisao
 decisaoUseCase -> decisaoDomain : validar pendente,\nnao expirada e uso unico
 decisaoUseCase -> decisaoDomain : aprovar()
 decisaoUseCase --> decisaoCtrl : DecisaoOrcamentoClienteResult
-decisaoCtrl --> cli : 200 OK\norcamento aprovado
+decisaoCtrl --> gateway : 200 OK\norcamento aprovado
+gateway --> cli : 200 OK
 
 note over cli, decisaoUseCase #EFF8EF
   Token opaco de decisão não é JWT.
@@ -249,9 +269,11 @@ note over usr, db
   GESTOR: peças, serviços, métricas, listagens e operações administrativas.
   ATENDENTE: clientes, veículos, OS, orçamento, pagamento e entrega.
   MECANICO: iniciar diagnóstico, adicionar itens e finalizar serviço.
+  CLIENTE: rotas protegidas de consulta da propria OS
+  e status por numero, com validacao de pertencimento pelo CPF do token.
   Público: /api/auth/**, documentação Swagger/OpenAPI,
   /h2-console/**, /actuator/health/**, /actuator/info,
-  /error, GET /api/ordens-servico/numero/*/status,
+  /error,
   POST /api/orcamentos/decisoes-cliente/*/aprovar e
   POST /api/orcamentos/decisoes-cliente/*/recusar.
 end note

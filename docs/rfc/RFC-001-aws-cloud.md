@@ -1,6 +1,6 @@
 # RFC-001: Escolha Da AWS Como Cloud Alvo
 
-**Status:** Proposto  
+**Status:** Aceito  
 **Data:** 2026-09-27  
 **Contexto:** Tech Challenge Fase 3   
 **Escopo:** Arquitetura cloud alvo

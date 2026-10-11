@@ -33,7 +33,7 @@ A Lambda `oficina-dgcar-auth-lambda` consulta a tabela `clientes` para:
 - validar existencia;
 - validar senha por `senha_hash`;
 - obter `clienteId`;
-- validar status quando `status_cliente` estiver disponivel.
+- validar status por `status_cliente`.
 
 ## Relacao Com A API Principal
 

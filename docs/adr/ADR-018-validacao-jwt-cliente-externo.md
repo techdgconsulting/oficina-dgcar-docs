@@ -1,4 +1,4 @@
-# ADR-018: Validacao Do JWT Externo De Cliente
+# ADR-018: Validacao E Autorizacao Do JWT Externo De Cliente
 
 **Status:** Aceito  
 **Data:** 2026-10-03  
@@ -11,14 +11,16 @@ O Tech Challenge 3 introduz autenticacao externa de clientes por CPF e senha usa
 
 Como as rotas protegidas de cliente serao consumidas por meio do API Gateway e executadas pela aplicacao Spring Boot no EKS, e necessario definir onde o token externo sera validado.
 
+Esta ADR nao decide como o cliente e autenticado nem como o JWT externo e emitido. Essas decisoes ficam na [`ADR-014`](./ADR-014-lambda-autenticacao-cliente-cpf.md). O escopo aqui e validar o token ja emitido e restringir o acesso do cliente aos seus proprios recursos.
+
 ## Decisao
 
-Validar o JWT externo de cliente em dois pontos:
+Validar e autorizar o JWT externo de cliente em dois pontos:
 
 - no API Gateway, como controle de borda, roteamento e bloqueio inicial de chamadas invalidas;
 - na aplicacao Spring Boot, como defesa em profundidade antes da execucao dos casos de uso protegidos.
 
-A aplicacao principal devera reconhecer explicitamente tokens com claim `tipo=CLIENTE`, validar assinatura, emissor, expiracao e claims obrigatorias, e restringir o acesso do cliente aos seus proprios recursos.
+A aplicacao principal deve reconhecer explicitamente tokens com claim `tipo=CLIENTE`, validar assinatura, emissor, expiracao e claims obrigatorias, e restringir o acesso do cliente aos seus proprios recursos.
 
 ## Justificativa
 
@@ -28,10 +30,10 @@ A aplicacao principal devera reconhecer explicitamente tokens com claim `tipo=CL
 - Permite testar regras de autorizacao de cliente na propria suite da aplicacao.
 - Facilita auditoria e demonstracao academica do controle de acesso em mais de uma camada.
 
-## Regras De Validacao Esperadas
+## Regras De Validacao
 
 - O token deve possuir assinatura valida.
-- O token deve possuir `iss` esperado para autenticacao serverless de cliente.
+- O token deve possuir `iss` da autenticacao serverless de cliente.
 - O token deve possuir `tipo=CLIENTE`.
 - O token deve possuir `clienteId`.
 - O token deve possuir `sub` com CPF normalizado.
@@ -55,6 +57,6 @@ A aplicacao principal devera reconhecer explicitamente tokens com claim `tipo=CL
 ## Relacao Com Outros Documentos
 
 - [`RFC-002`](../rfc/RFC-002-autenticacao-cpf-lambda.md): autenticacao por CPF e senha com Lambda.
-- [`ADR-014`](./ADR-014-lambda-autenticacao-cliente-cpf.md): Lambda para autenticacao externa de cliente.
+- [`ADR-014`](./ADR-014-lambda-autenticacao-cliente-cpf.md): autenticacao do cliente externo e emissao do JWT `CLIENTE`.
 - [`ADR-013`](./ADR-013-api-gateway-entrada-oficial.md): API Gateway como entrada oficial.
 - [`auth-cpf-sequence.puml`](../arquitetura/auth-cpf-sequence.puml): fluxo de autenticacao por CPF e senha.

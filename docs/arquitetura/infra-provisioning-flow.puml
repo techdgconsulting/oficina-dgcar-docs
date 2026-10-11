@@ -1,0 +1,90 @@
+@startuml infra-provisioning-flow
+!theme plain
+skinparam backgroundColor #F8FAFC
+skinparam shadowing false
+skinparam ArrowColor #1F2937
+skinparam defaultTextAlignment center
+skinparam activity {
+  BackgroundColor #FFFFFF
+  BorderColor #1F2937
+  FontColor #111827
+  DiamondBackgroundColor #EEF2FF
+  DiamondBorderColor #4338CA
+}
+
+title Provisionamento E Teardown Da Infraestrutura - Homolog E Producao
+
+start
+
+partition "Mantenedor" {
+  :Seleciona workflow no repositorio oficina-dgcar-infra-k8s;
+  :Escolhe ambiente homolog ou prod;
+  :Informa confirmacao operacional\nPROVISIONAR ou DESTROY;
+}
+
+partition "GitHub Environment" {
+  if (Ambiente exige aprovacao?) then (sim)
+    :Aguardar aprovadores do environment;
+  else (nao)
+    :Seguir com regras do environment;
+  endif
+  :Carregar secrets e variaveis do ambiente selecionado;
+}
+
+partition "Preflight" {
+  :Validar identidade AWS;
+  :Validar secrets obrigatorios;
+  :Validar lock/backend Terraform;
+  :Validar recursos residuais conflitantes;
+}
+
+if (Operacao selecionada?) then (PROVISIONAR)
+  partition "Infra K8s / Gateway" {
+    :Inicializar backend S3;
+    :Provisionar VPC, subnets, EKS, ECR e API Gateway base;
+    :Publicar outputs de rede, cluster, registry e Gateway;
+  }
+
+  partition "Infra DB" {
+    :Acionar provisionamento do PostgreSQL gerenciado;
+    :Publicar outputs de endpoint, porta, database e security group;
+  }
+
+  partition "Lambda Auth" {
+    :Acionar provisionamento da Lambda Auth CPF + Senha;
+    :Atualizar acesso do PostgreSQL para a Lambda;
+    :Publicar pacote da Lambda;
+  }
+
+  partition "Integracoes" {
+    :Integrar POST /auth/cpf no API Gateway;
+    :Publicar aplicacao Spring Boot no EKS;
+    :Resolver endpoint da aplicacao;
+    :Integrar rota proxy ANY /{proxy+} no API Gateway;
+    :Validar outputs finais;
+  }
+
+  if (Smoke tests habilitados?) then (sim)
+    :Executar login CPF + senha;
+    :Validar JWT CLIENTE;
+    :Consultar OS por numero com Bearer token;
+    :Validar bloqueios sem token e fora do CPF autenticado;
+  else (nao)
+    :Encerrar provisionamento sem validacao funcional automatica;
+  endif
+
+else (DESTROY)
+  partition "Teardown Coordenado" {
+    :Remover workloads Kubernetes e LoadBalancers;
+    :Destruir PostgreSQL gerenciado;
+    :Destruir Lambda Auth CPF + Senha;
+    :Aguardar liberacao de ENIs gerenciadas;
+    :Remover dependencias residuais seguras da VPC;
+    :Destruir API Gateway, EKS, ECR, rede e IAM;
+    :Executar diagnostico adicional quando houver dependencia residual;
+    :Validar ausencia dos recursos principais na AWS;
+  }
+endif
+
+stop
+@enduml
