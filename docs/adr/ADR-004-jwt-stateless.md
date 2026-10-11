@@ -7,7 +7,7 @@
 
 ## Contexto
 
-O sistema precisa de autenticação para proteger endpoints de gestão (CRUD de peças, serviços, ordens de serviço) enquanto mantém endpoints públicos para o cliente (consulta de OS e consulta de Status de OS).
+O sistema precisa de autenticação para proteger endpoints de gestão (CRUD de peças, serviços, ordens de serviço) e endpoints de cliente que retornam dados de OS. As rotas públicas ficam restritas a autenticação, documentação técnica e decisões externas por token opaco.
 
 ## Decisão
 
@@ -24,7 +24,7 @@ Adotar **JWT (JSON Web Tokens)** com sessão stateless:
 ### Rotas públicas (sem autenticação)
 - `POST /api/auth/login`
 - `POST /api/auth/registro`
-- `GET /api/ordens-servico/numero/{numero}/status` — Cliente consulta status da OS pelo número
+- `GET /api/ordens-servico/numero/{numero}/status` — Cliente autenticado consulta status da propria OS pelo numero
 - `GET /error` — Endpoint interno do Tomcat para tratamento de erros (**ver nota abaixo**)
 
 Na implementação, login e registro são liberados pela regra `PathPatternRequestMatcher` para `/api/auth/**`.

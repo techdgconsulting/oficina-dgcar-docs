@@ -65,6 +65,16 @@ Saidas de erro:
 | Senha invalida | 401 | Mensagem sanitizada |
 | Falha inesperada | 500 | Mensagem sanitizada e log interno |
 
+## Runtime Da Lambda
+
+A Lambda Auth CPF + Senha utiliza Node.js 20.x como runtime.
+
+A escolha foi feita por empacotamento simples, inicializacao leve no AWS Lambda, baixo acoplamento com a aplicacao principal Java/Spring Boot e disponibilidade madura de bibliotecas para JWT, bcrypt e PostgreSQL.
+
+Alternativas como Java e Python foram consideradas, mas Node.js 20.x foi mantido por reduzir complexidade operacional da funcao serverless sem misturar o ciclo de build da Lambda com o ciclo Maven da aplicacao principal.
+
+A decisao arquitetural permanente esta registrada na [`ADR-014`](../adr/ADR-014-lambda-autenticacao-cliente-cpf.md).
+
 ## Claims Do JWT Externo
 
 | Claim | Conteudo |
@@ -104,7 +114,7 @@ Campos usados no fluxo:
 | `clientes.id` | Claim `clienteId` |
 | `clientes.documento` | Claim `sub` e busca por CPF |
 | `clientes.senha_hash` | Comparacao bcrypt da senha recebida |
-| `clientes.status_cliente` | Controle de cliente apto, quando disponivel no modelo |
+| `clientes.status_cliente` | Controle de cliente apto para autenticacao externa |
 
 ## Separacao Entre Cliente Externo E Usuario Interno
 
@@ -138,7 +148,7 @@ Esta arquitetura atende ao requisito de Function Serverless para validar cliente
 
 ## Relacao Com Outros Documentos
 
-- [`ADR-014`](../adr/ADR-014-lambda-autenticacao-cliente-cpf.md): Lambda para autenticacao externa de cliente.
-- [`ADR-018`](../adr/ADR-018-validacao-jwt-cliente-externo.md): validacao do JWT externo no API Gateway e na aplicacao.
-- [`sequencia-auth-cpf-senha.puml`](../arquitetura/sequencia-auth-cpf-senha.puml): diagrama de sequencia do fluxo de autenticacao.
+- [`ADR-014`](../adr/ADR-014-lambda-autenticacao-cliente-cpf.md): autenticacao do cliente externo e emissao do JWT `CLIENTE`.
+- [`ADR-018`](../adr/ADR-018-validacao-jwt-cliente-externo.md): validacao e autorizacao do JWT externo no API Gateway e na aplicacao.
+- [`auth-cpf-sequence.puml`](../arquitetura/auth-cpf-sequence.puml): diagrama oficial detalhado do fluxo de autenticacao.
 - [`sequencia-consulta-os-cliente.puml`](../arquitetura/sequencia-consulta-os-cliente.puml): diagrama de consulta protegida por numero de OS.

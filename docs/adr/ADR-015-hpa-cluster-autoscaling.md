@@ -57,6 +57,5 @@ O Cluster Autoscaling devera ser avaliado nas proximas fases caso o ambiente pre
 
 ## Relacao Com Outros Documentos
 
-- `docs/infraestrutura/hpa-operacional.md`: roteiro de validacao e evidencias.
-- `k8s/hpa.yaml`: manifesto declarativo do HPA.
+- `k8s/hpa.yaml`: manifesto declarativo do HPA no repositorio de infraestrutura Kubernetes.
 - `RFC-004`: observabilidade com New Relic para acompanhar escalabilidade.

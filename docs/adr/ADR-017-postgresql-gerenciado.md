@@ -72,5 +72,6 @@ O banco gerenciado deve considerar:
 ## Relacao Com Outros Documentos
 
 - `ADR-003`: decisao original por PostgreSQL.
+- `RFC-006`: escolha tecnica do PostgreSQL gerenciado como banco de dados.
 - `RFC-005`: separacao do Terraform de banco e Kubernetes.
 - `V1__criar_tabelas.sql` e migrations seguintes: evolucao versionada do schema.

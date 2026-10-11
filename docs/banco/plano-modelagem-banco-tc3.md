@@ -1,19 +1,19 @@
-# Plano De Modelagem Do Banco De Dados - Tech Challenge 3
+# Modelagem Do Banco De Dados - Tech Challenge 3
 
 ## Objetivo
 
-Este documento define os artefatos de modelagem relacional que devem ser produzidos para transformar o banco de dados da Oficina Mecânica DGCar em evidência arquitetural do Tech Challenge 3.
+Este documento consolida os artefatos de modelagem relacional usados como evidência arquitetural do Tech Challenge 3 da Oficina Mecânica DGCar.
 
 O banco permanece PostgreSQL gerenciado em Amazon RDS, conforme [`ADR-017`](../adr/ADR-017-postgresql-gerenciado.md). As alterações físicas de schema devem ocorrer somente por migrations Flyway versionadas.
 
-## Artefatos Esperados
+## Artefatos Entregues
 
 - Diagrama ER do modelo relacional.
 - Dicionário de dados.
 - Justificativa formal do PostgreSQL.
 - Documentação de cardinalidades.
-- Revisão de índices.
-- Avaliação do campo `status_cliente`.
+- Índices de consulta e performance.
+- Campo `status_cliente` implementado por migration Flyway.
 - Relação entre dados operacionais e dashboards de observabilidade.
 
 ## Entidades Principais
@@ -34,9 +34,9 @@ O banco permanece PostgreSQL gerenciado em Amazon RDS, conforme [`ADR-017`](../a
 | `servicos` | Catálogo de serviços. |
 | `usuarios` | Identidades internas da oficina. |
 
-## Cardinalidades A Documentar
+## Cardinalidades
 
-| Relação | Cardinalidade esperada | Observação |
+| Relação | Cardinalidade | Observação |
 |---|---|---|
 | cliente -> veículos | 1:N | Um cliente pode possuir vários veículos. |
 | cliente -> ordens | 1:N | Uma ordem pertence a um cliente. |
@@ -44,12 +44,12 @@ O banco permanece PostgreSQL gerenciado em Amazon RDS, conforme [`ADR-017`](../a
 | ordem -> itens | 1:N | Uma ordem contém serviços e/ou peças. |
 | ordem -> orçamento | 1:0..N | O fluxo pode gerar orçamento para aprovação. |
 | ordem -> pagamento | 1:0..N | Pagamentos registram tentativa e resultado. |
-| ordem -> execução | 1:0..1 ou 1:N | Deve ser confirmado no modelo atual antes do ER final. |
-| ordem -> entrega | 1:0..1 | Entrega ocorre após finalização e pagamento aprovado. |
-| ordem -> encerramento | 1:0..1 | Encerramento formaliza conclusão da OS. |
+| ordem -> execução | 1:0..N | O schema permite registros de acompanhamento técnico vinculados à ordem. |
+| ordem -> entrega | 1:0..N | Entrega ocorre após finalização e pagamento aprovado. |
+| ordem -> encerramento | 1:0..N | Encerramento formaliza conclusão da OS. |
 | orçamento -> decisão externa | 1:N | Decisões anteriores podem expirar quando uma nova solicitação é emitida. |
 
-## Índices A Revisar
+## Índices
 
 | Índice/campo | Motivo |
 |---|---|
@@ -63,16 +63,16 @@ O banco permanece PostgreSQL gerenciado em Amazon RDS, conforme [`ADR-017`](../a
 | `orcamento_decisao_cliente.token_hash` | Validação de decisão externa por token opaco. |
 | `pagamentos.transaction_id` | Rastreabilidade de integração de pagamento. |
 
-## Avaliação Do Campo `status_cliente`
+## Campo `status_cliente`
 
-A Lambda Auth CPF + Senha precisa consultar existência e status do cliente. Caso o modelo atual não possua um campo explícito para o status do cliente, deve ser avaliada uma migration com campo como:
+A Lambda Auth CPF + Senha consulta existência e status do cliente. O modelo relacional inclui o campo `clientes.status_cliente`, criado por migration Flyway:
 
 ```sql
 ALTER TABLE clientes
 ADD COLUMN status_cliente VARCHAR(20) NOT NULL DEFAULT 'ATIVO';
 ```
 
-Estados mínimos recomendados:
+Estados mínimos documentados:
 
 | Status | Significado |
 |---|---|
@@ -80,11 +80,11 @@ Estados mínimos recomendados:
 | `INATIVO` | Cliente existe, mas não deve consumir rotas protegidas. |
 | `BLOQUEADO` | Cliente teve acesso suspenso por regra operacional ou segurança. |
 
-Essa alteração deve ser acompanhada de validação na Lambda, testes automatizados e documentação no dicionário de dados.
+Essa informação é validada pela Lambda e documentada no dicionário de dados.
 
 ## Relação Com Observabilidade
 
-O modelo relacional deve sustentar dashboards e métricas como:
+O modelo relacional sustenta dashboards e métricas como:
 
 - volume diário de ordens de serviço;
 - ordens por status;
@@ -94,11 +94,11 @@ O modelo relacional deve sustentar dashboards e métricas como:
 - acompanhamento de decisões externas de orçamento;
 - consultas de OS por cliente autenticado.
 
-## Critérios Para Considerar A Modelagem Fechada
+## Entregáveis
 
-- Diagrama ER versionado em `docs/arquitetura`.
+- Diagrama ER versionado em `docs/banco`.
 - Dicionário de dados com tabelas, colunas, tipos, chaves e índices.
 - Cardinalidades documentadas.
 - Justificativa do PostgreSQL referenciada no README.
-- Decisão sobre `status_cliente` registrada e, se aprovada, implementada por migration Flyway.
+- Campo `status_cliente` registrado e implementado por migration Flyway.
 - Relação entre modelo e dashboards documentada.

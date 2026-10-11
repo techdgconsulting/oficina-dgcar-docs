@@ -1,6 +1,6 @@
 # RFC-003: Separacao Em Quatro Repositorios
 
-**Status:** Proposto  
+**Status:** Aceito  
 **Data:** 2026-09-27  
 **Contexto:** Tech Challenge - Estrutura de Repositorios e CI/CD  
 **Escopo:** Organizacao de codigo, infraestrutura e pipelines
@@ -24,9 +24,9 @@ Separar o projeto em quatro repositorios:
 | `oficina-dgcar-infra-db` | Banco PostgreSQL gerenciado, rede de banco, parametros e outputs |
 | `oficina-dgcar-api` | Aplicacao principal Spring Boot executando em Kubernetes |
 
-O plano operacional de extracao controlada, incluindo matriz de origem/destino, dependencias entre repositorios, ordem recomendada, estrategia de branches e criterios para iniciar a separacao fisica, esta documentado em [`docs/infraestrutura/plano-separacao-repositorios-tc3.md`](../infraestrutura/plano-separacao-repositorios-tc3.md).
+As responsabilidades, dependencias, estrategia de branches, CI/CD e entregaveis da separacao fisica ficam consolidados nesta RFC e nos READMEs dos repositorios tecnicos.
 
-## Artefatos Esperados Por Repositorio
+## Entregaveis Por Repositorio
 
 ### `oficina-dgcar-auth-lambda`
 
@@ -60,7 +60,7 @@ O plano operacional de extracao controlada, incluindo matriz de origem/destino, 
 - Pipeline de build, scan, push no ECR e deploy no EKS.
 - README com execucao local, deploy e links de API.
 
-## CI/CD Esperado
+## CI/CD Entregue
 
 Cada repositorio deve possuir pipeline propria com:
 

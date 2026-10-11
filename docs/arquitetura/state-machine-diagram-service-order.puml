@@ -2,7 +2,12 @@
 !theme plain
 skinparam backgroundColor #FEFEFE
 
-title Máquina de Estados - Ordem de Serviço
+title Maquina De Estados Da Ordem De Servico - Escopo De Dominio
+
+note top
+  Diagrama de dominio. Nao representa infraestrutura,
+  API Gateway, Lambda ou banco de dados.
+end note
 
 [*] --> RECEBIDA : Criar OS
 
@@ -51,57 +56,5 @@ ENTREGUE : encerramento criado
 
 CANCELADA : OS cancelada
 CANCELADA : pelo cliente
-
-@enduml
-
-@startuml StatusEntrega
-!theme plain
-skinparam backgroundColor #FEFEFE
-
-title Máquina de Estados - Entrega do Veículo
-
-[*] --> AGUARDANDO_LIBERACAO : Criar Entrega
-
-AGUARDANDO_LIBERACAO --> VEICULO_LIBERADO : Pagamento Aprovado
-
-VEICULO_LIBERADO --> VEICULO_ENTREGUE : Cliente retirou
-VEICULO_LIBERADO --> VEICULO_EM_PATIO : Cliente não retirou\n(extensão futura)
-
-VEICULO_EM_PATIO --> VEICULO_ENTREGUE : Cliente retirou
-
-VEICULO_ENTREGUE --> [*]
-
-AGUARDANDO_LIBERACAO : Aguardando pagamento
-
-VEICULO_LIBERADO : Veículo liberado
-VEICULO_LIBERADO : para retirada
-
-VEICULO_EM_PATIO : Veículo no pátio
-VEICULO_EM_PATIO : aguardando retirada
-VEICULO_EM_PATIO : modelado no domínio
-VEICULO_EM_PATIO : não é fluxo principal
-
-VEICULO_ENTREGUE : Veículo devolvido
-VEICULO_ENTREGUE : ao cliente
-
-@enduml
-
-@startuml StatusEncerramento
-!theme plain
-skinparam backgroundColor #FEFEFE
-
-title Máquina de Estados - Encerramento
-
-[*] --> PENDENTE : Criar Encerramento
-
-PENDENTE --> ENCERRADA : Encerrar OS
-
-ENCERRADA --> [*]
-
-PENDENTE : Aguardando entrega
-PENDENTE : do veículo
-
-ENCERRADA : OS fechada
-ENCERRADA : definitivamente
 
 @enduml

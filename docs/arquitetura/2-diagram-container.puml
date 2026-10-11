@@ -4,44 +4,45 @@
 LAYOUT_TOP_DOWN()
 LAYOUT_WITH_LEGEND()
 
-title Diagrama de Container — Sistema Oficina Mecânica DGCAR [C4 — Nível 2]
+title Diagrama de Container - Sistema Oficina Mecanica DGCar [C4 - Nivel 2]
 
-' ─── OBJETIVOS ────────────────────────────────────────────────────────
-'Visão dos principais blocos de construção do sistema (APIs, DB, etc).
+' Visao dos principais containers e servicos da arquitetura atual.
 
-' ─── USO ──────────────────────────────────────────────────────────────
-'Facilita a compreensão de dependências e do fluxo de dados entre os conteineres.
+Person(atendente, "Atendente", "Perfil ATENDENTE. Gerencia clientes, veiculos, OS, orcamentos e pagamentos.")
+Person(mecanico, "Mecanico", "Perfil MECANICO. Inicia diagnostico, adiciona itens e finaliza servico.")
+Person(gestor, "Gestor", "Perfil GESTOR. Acesso completo a operacoes, cadastros e KPIs.")
+Person(cliente, "Cliente", "Autentica com CPF e senha e consulta a propria OS por numero.")
 
+System_Ext(viacep, "ViaCEP API", "Servico publico para consulta de endereco por CEP.")
+System_Ext(paymentGateway, "Gateway de Pagamento", "Processa e autoriza pagamentos. No projeto, a integracao e representada por adapter simulavel.")
+System_Ext(smtpServer, "Servidor SMTP", "Envio de e-mails quando OFICINA_EMAIL_MODE=SMTP.")
+System_Ext(newRelic, "New Relic", "Observabilidade centralizada.")
 
-' ─── PESSOAS ──────────────────────────────────────────────────────────────────
-Person(atendente, "Atendente", "Perfil ATENDENTE. Gerencia clientes, veículos, cria OS, orçamentos e pagamentos via API REST.")
-Person(mecanico, "Mecânico", "Perfil MECANICO. Inicia diagnóstico, adiciona itens e finaliza serviço via API REST.")
-Person(gestor, "Gestor", "Perfil GESTOR. Acesso completo: tudo acima + CRUD peças/serviços + KPIs.")
-Person(cliente, "Cliente", "Proprietário do veículo. Consulta o status da OS sem login e aprova ou recusa orçamento por link público com token.")
-
-' ─── SISTEMAS EXTERNOS ────────────────────────────────────────────────────────
-System_Ext(viacep, "ViaCEP API", "Serviço público. Retorna endereço completo a partir de um CEP informado.")
-System_Ext(gateway, "Gateway de Pagamento", "Processa e autoriza pagamentos. Retorna aprovação ou recusa com código de transação. No projeto, a integração é representada por adapter simulável.")
-System_Ext(smtpServer, "Servidor SMTP", "Infraestrutura externa usada para envio real de e-mails quando OFICINA_EMAIL_MODE=SMTP.")
-
-' ─── SISTEMA: OFICINA MECÂNICA ────────────────────────────────────────────────
-System_Boundary(oficina, "Sistema Oficina Mecânica") {
-
-    Container(api, "API Spring Boot", "Java 17, Spring Boot 3.5.16, Docker", "Expõe endpoints REST. Organiza a solução em adapters in web, application usecase, application port in/out, domain model/valueobject, adapters out e infrastructure.")
-
-    ContainerDb(db, "PostgreSQL 16", "Banco de Dados Relacional, Docker", "Armazena clientes, veículos, OS, itens, peças, serviços, orçamentos, execuções, diagnósticos, pagamentos, entregas, encerramentos e usuários.")
+System_Boundary(oficina, "Sistema Oficina Mecanica") {
+  Container(apiGateway, "Amazon API Gateway", "AWS API Gateway", "Entrada publica oficial. Roteia autenticacao externa e chamadas para a API.")
+  Container(lambdaAuth, "Lambda Auth CPF + Senha", "Node.js 20.x, AWS Lambda", "Valida CPF, status_cliente e senha_hash; emite JWT externo tipo CLIENTE.")
+  Container(api, "API Spring Boot", "Java 17, Spring Boot 3.5.16, Docker, EKS", "Expoe endpoints REST, executa casos de uso e valida JWT interno e JWT CLIENTE.")
+  ContainerDb(db, "Amazon RDS PostgreSQL", "PostgreSQL 16", "Armazena clientes, usuarios, veiculos, OS, itens, pecas, servicos, orcamentos, execucoes, pagamentos, entregas e encerramentos.")
 }
 
-' ─── RELACIONAMENTOS ──────────────────────────────────────────────────────────
-Rel(atendente, api, "Gerencia clientes, veículos, OS, orçamentos e pagamentos", "JSON/HTTPS, Bearer Token")
-Rel(mecanico, api, "Inicia diagnóstico, adiciona itens, finaliza serviço", "JSON/HTTPS, Bearer Token")
-Rel(gestor, api, "Acesso completo: CRUD peças/serviços, KPIs, todas as operações", "JSON/HTTPS, Bearer Token")
-Rel(cliente, api, "Consulta status da OS pelo número e aprova/recusa orçamento por token, sem login", "JSON/HTTPS")
+Rel(cliente, apiGateway, "POST /auth/cpf e consulta protegida de OS", "HTTPS/JSON")
+Rel(atendente, apiGateway, "Operacoes da oficina", "HTTPS/JSON + JWT interno")
+Rel(mecanico, apiGateway, "Operacoes de execucao e diagnostico", "HTTPS/JSON + JWT interno")
+Rel(gestor, apiGateway, "Administracao e KPIs", "HTTPS/JSON + JWT interno")
 
-Rel(api, db, "Lê e escreve dados de todos os agregados", "SQL/TCP, porta 5432")
-Rel(api, viacep, "Consulta endereço por CEP ao cadastrar/editar cliente", "HTTP GET")
-Rel(api, gateway, "Envia valor e método de pagamento; recebe aprovação ou recusa", "HTTPS")
-Rel(api, smtpServer, "Envia notificações de orçamento e status da OS", "SMTP")
-Rel(smtpServer, cliente, "Entrega e-mails ao cliente", "E-mail")
+Rel(apiGateway, lambdaAuth, "POST /auth/cpf", "AWS_PROXY")
+Rel(lambdaAuth, db, "Consulta cliente por documento, status_cliente e senha_hash", "SQL/TCP 5432")
+Rel(lambdaAuth, apiGateway, "Retorna JWT CLIENTE", "JSON")
+Rel(apiGateway, api, "Encaminha rotas da aplicacao", "HTTPS/JSON")
+Rel(api, db, "Le e escreve dados de dominio", "SQL/TCP 5432")
+
+Rel(api, viacep, "Consulta endereco por CEP", "HTTP GET")
+Rel(api, paymentGateway, "Processa pagamento", "HTTPS")
+Rel(api, smtpServer, "Envia notificacoes", "SMTP")
+Rel(smtpServer, cliente, "Entrega e-mails", "E-mail")
+
+Rel(apiGateway, newRelic, "Metricas e logs", "Telemetry")
+Rel(lambdaAuth, newRelic, "Logs e metricas", "Telemetry")
+Rel(api, newRelic, "Logs, metricas e traces", "Telemetry")
 
 @enduml

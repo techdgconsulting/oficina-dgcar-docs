@@ -192,7 +192,7 @@ O projeto exige uma plataforma backend consolidada, com suporte a DDD tático, p
 
 **Decisão:** manter a definição de infraestrutura e deploy versionada no repositório, usando Terraform para provisionamento AWS, Kubernetes para execução da aplicação, Amazon EKS como cluster gerenciado, Amazon ECR para imagens Docker, Amazon RDS PostgreSQL para banco gerenciado, Amazon S3 para backend remoto do Terraform state e GitHub Actions para CI/CD.
 
-> As decisões detalhadas de infraestrutura, ordem de criação, backend remoto, deploy no EKS e destruição controlada estão documentadas em [`docs/infraestrutura/ADR-Infra.md`](../infraestrutura/ADR-Infra.md).
+> As decisoes consolidadas de infraestrutura, Terraform, Kubernetes e separacao de repositorios estao documentadas em [`ADR-019-infraestrutura-aws-terraform-kubernetes.md`](ADR-019-infraestrutura-aws-terraform-kubernetes.md).
 
 **Justificativas:**
 - Terraform permite provisionamento reprodutível da infraestrutura AWS.
@@ -200,7 +200,7 @@ O projeto exige uma plataforma backend consolidada, com suporte a DDD tático, p
 - ECR centraliza imagens Docker versionadas e consumidas pelo cluster.
 - RDS PostgreSQL aproxima o ambiente em nuvem do banco relacional principal definido na ADR-003.
 - S3 como backend remoto preserva o `terraform.tfstate` entre execuções locais e pipelines.
-- GitHub Actions separa infraestrutura (`infra.yml`) e aplicação (`app-cd.yml`), evitando que commits de código executem `terraform apply` automaticamente.
+- GitHub Actions executa provisionamento e teardown centralizados no repo `oficina-dgcar-infra-k8s`, mantendo o deploy da aplicacao em workflow proprio e evitando que commits de codigo executem `terraform apply` automaticamente.
 
 **Configuração atual:**
 - Terraform `>= 1.6.0`
@@ -237,4 +237,4 @@ O projeto exige uma plataforma backend consolidada, com suporte a DDD tático, p
 | Infraestrutura como Código | Terraform + AWS Provider | Terraform >= 1.6.0 / AWS Provider ~> 5.0 |
 | Kubernetes | Kubernetes + Amazon EKS + Kustomize | (ADR-Infra) |
 | Cloud AWS | EKS, ECR, RDS PostgreSQL, S3, IAM, VPC e Security Groups | (ADR-Infra) |
-| CI/CD | GitHub Actions | `infra.yml` + `app-cd.yml` |
+| CI/CD | GitHub Actions | `Provisionar Ambiente Homolog`, `Destruir Ambiente Homolog` e workflow de deploy da aplicacao |

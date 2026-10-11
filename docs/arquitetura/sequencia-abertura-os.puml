@@ -1,0 +1,192 @@
+@startuml sequencia-abertura-os
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam sequenceMessageAlign center
+skinparam ArrowColor #1F2937
+skinparam ParticipantBorderColor #374151
+skinparam ParticipantBackgroundColor #F3F4F6
+skinparam ActorBorderColor #374151
+skinparam ActorBackgroundColor #FFFFFF
+
+title Sequencia De Abertura De Ordem De Servico
+
+actor "Atendente ou Gestor" as Usuario
+participant "API Gateway\nEntrada oficial" as Gateway
+participant "API Spring Boot\nSecurity + Controller" as API
+participant "OrdemDeServicoController" as Controller
+participant "OrdemDeServicoWebMapper" as Mapper
+participant "CriarOrdemServicoUseCase" as CriarOS
+participant "CriarOrdemServicoCompletaUseCase" as CriarOSCompleta
+participant "ClienteRepositoryPort" as ClienteRepo
+participant "VeiculoRepositoryPort" as VeiculoRepo
+participant "ServicoRepositoryPort" as ServicoRepo
+participant "PecaRepositoryPort" as PecaRepo
+participant "OrdemDeServicoRepositoryPort" as OSRepo
+participant "ExecucaoRepositoryPort" as ExecucaoRepo
+participant "NotificarStatusOrdemServicoUseCase" as Notificacao
+database "Amazon RDS\nPostgreSQL" as DB
+
+note over Usuario, Gateway
+  Abertura de OS e fluxo operacional interno.
+  Usa JWT interno de ATENDENTE ou GESTOR.
+  A Lambda Auth CPF + Senha nao participa deste fluxo.
+end note
+
+== Autorizacao ==
+
+Usuario -> Gateway: POST /api/ordens-servico\nou /api/ordens-servico/completa\nAuthorization: Bearer JWT interno
+Gateway -> API: Encaminha requisicao
+API -> API: Valida JWT interno e role\nATENDENTE ou GESTOR
+
+alt token ausente, invalido ou role sem permissao
+    API --> Gateway: 401/403\nErro sanitizado
+    Gateway --> Usuario: Requisicao negada
+else usuario autorizado
+    API -> Controller: despacha requisicao HTTP
+end
+
+== Fluxo A - OS com cliente e veiculo existentes ==
+
+alt POST /api/ordens-servico
+    Controller -> Mapper: toCriarCommand(request, atendenteNome)
+    Mapper --> Controller: CriarOrdemServicoCommand
+    Controller -> CriarOS: execute(command)
+
+    CriarOS -> ClienteRepo: buscarPorId(clienteId)
+    ClienteRepo -> DB: SELECT cliente
+    DB --> ClienteRepo: cliente encontrado
+    ClienteRepo --> CriarOS: Cliente
+
+    CriarOS -> VeiculoRepo: buscarPorId(veiculoId)
+    VeiculoRepo -> DB: SELECT veiculo
+    DB --> VeiculoRepo: veiculo encontrado
+    VeiculoRepo --> CriarOS: Veiculo
+
+    loop para cada item informado
+        alt item SERVICO
+            CriarOS -> ServicoRepo: buscarPorId(referenciaId)
+            ServicoRepo -> DB: SELECT servico
+            DB --> ServicoRepo: servico
+            ServicoRepo --> CriarOS: Servico
+        else item PECA
+            CriarOS -> PecaRepo: buscarPorId(referenciaId)
+            PecaRepo -> DB: SELECT peca
+            DB --> PecaRepo: peca
+            PecaRepo --> CriarOS: Peca
+            CriarOS -> CriarOS: verificar disponibilidade
+        end
+    end
+
+    CriarOS -> CriarOS: Cria OS RECEBIDA\natribui atendente e itens
+    CriarOS -> OSRepo: salvar(OS)
+    OSRepo -> DB: INSERT ordens_servico e itens_os
+    DB --> OSRepo: OS com id
+    OSRepo --> CriarOS: OrdemDeServico
+
+    CriarOS -> CriarOS: atribuir numero\nOS-ano-id
+    CriarOS -> OSRepo: salvar(OS)
+    OSRepo -> DB: UPDATE ordens_servico.numero
+
+    CriarOS -> ExecucaoRepo: salvar(Execucao.criar(osId))
+    ExecucaoRepo -> DB: INSERT execucoes
+
+    CriarOS -> Notificacao: notificar status RECEBIDA
+    CriarOS --> Controller: OrdemServicoResult
+end
+
+== Fluxo B - OS completa com cliente e veiculo no payload ==
+
+alt POST /api/ordens-servico/completa
+    Controller -> Mapper: toCriarCompletaCommand(request, atendenteNome)
+    Mapper --> Controller: CriarOrdemServicoCompletaCommand
+    Controller -> CriarOSCompleta: execute(command)
+
+    CriarOSCompleta -> CriarOSCompleta: valida documento e placa
+    CriarOSCompleta -> ClienteRepo: buscarPorDocumento(documento)
+    ClienteRepo -> DB: SELECT cliente por documento
+
+    alt cliente existente
+        DB --> ClienteRepo: cliente encontrado
+        ClienteRepo --> CriarOSCompleta: Cliente
+    else cliente inexistente
+        DB --> ClienteRepo: vazio
+        ClienteRepo --> CriarOSCompleta: Optional.empty
+        CriarOSCompleta -> CriarOSCompleta: cria Cliente\ncom endereco informado ou ViaCEP
+        CriarOSCompleta -> ClienteRepo: salvar(cliente)
+        ClienteRepo -> DB: INSERT clientes
+        DB --> ClienteRepo: cliente com id
+        ClienteRepo --> CriarOSCompleta: Cliente
+    end
+
+    CriarOSCompleta -> VeiculoRepo: buscarPorPlaca(placa)
+    VeiculoRepo -> DB: SELECT veiculo por placa
+
+    alt veiculo existente do mesmo cliente
+        DB --> VeiculoRepo: veiculo encontrado
+        VeiculoRepo --> CriarOSCompleta: Veiculo
+    else veiculo existente de outro cliente
+        DB --> VeiculoRepo: veiculo encontrado
+        VeiculoRepo --> CriarOSCompleta: Veiculo
+        CriarOSCompleta --> Controller: NegocioException
+        Controller --> Gateway: 422\nErro padronizado
+        Gateway --> Usuario: Veiculo ja cadastrado\npara outro cliente
+    else veiculo inexistente
+        DB --> VeiculoRepo: vazio
+        VeiculoRepo --> CriarOSCompleta: Optional.empty
+        CriarOSCompleta -> VeiculoRepo: salvar(veiculo)
+        VeiculoRepo -> DB: INSERT veiculos
+        DB --> VeiculoRepo: veiculo com id
+        VeiculoRepo --> CriarOSCompleta: Veiculo
+    end
+
+    loop para cada item informado
+        alt item SERVICO
+            CriarOSCompleta -> ServicoRepo: buscarPorId(referenciaId)
+            ServicoRepo -> DB: SELECT servico
+            DB --> ServicoRepo: servico
+            ServicoRepo --> CriarOSCompleta: Servico
+        else item PECA
+            CriarOSCompleta -> PecaRepo: buscarPorId(referenciaId)
+            PecaRepo -> DB: SELECT peca
+            DB --> PecaRepo: peca
+            PecaRepo --> CriarOSCompleta: Peca
+            CriarOSCompleta -> CriarOSCompleta: verificar disponibilidade
+        end
+    end
+
+    CriarOSCompleta -> CriarOSCompleta: Cria OS RECEBIDA\natribui atendente e itens
+    CriarOSCompleta -> OSRepo: salvar(OS)
+    OSRepo -> DB: INSERT ordens_servico e itens_os
+    DB --> OSRepo: OS com id
+    OSRepo --> CriarOSCompleta: OrdemDeServico
+
+    CriarOSCompleta -> CriarOSCompleta: atribuir numero\nOS-ano-id
+    CriarOSCompleta -> OSRepo: salvar(OS)
+    OSRepo -> DB: UPDATE ordens_servico.numero
+
+    CriarOSCompleta -> ExecucaoRepo: salvar(Execucao.criar(osId))
+    ExecucaoRepo -> DB: INSERT execucoes
+
+    CriarOSCompleta -> Notificacao: notificar status RECEBIDA
+    CriarOSCompleta --> Controller: OrdemServicoResult
+end
+
+== Resposta ==
+
+Controller -> Mapper: toResponse(result)
+Mapper --> Controller: OrdemServicoResponse
+Controller --> Gateway: 201 Created\nid, numero, status, cliente,\nveiculo, itens e valor total
+Gateway --> Usuario: OS aberta
+
+note over API,Controller
+  A abertura de OS e restrita a ATENDENTE e GESTOR.
+  Cliente externo nao abre OS por esta rota.
+end note
+
+note over OSRepo,DB
+  O numero legivel da OS e atribuido apos o primeiro INSERT,
+  pois depende do id gerado pelo banco.
+end note
+
+@enduml

@@ -9,7 +9,7 @@ skinparam defaultTextAlignment center
 
 left to right direction
 
-title Arquitetura Cloud Alvo - Oficina Mecanica DGCar
+title Visao Alvo Da Solucao Em Nuvem - Fluxos, Repositorios E Observabilidade
 
 actor "Cliente externo\nCPF + senha" as cliente
 actor "Usuario interno\nOficina" as interno
@@ -95,6 +95,16 @@ note bottom of k8s
   com HPA e futura observabilidade completa.
   Login de atendentes, mecanicos e gestores
   continua na aplicacao via /api/auth/login.
+end note
+
+note bottom
+  Este diagrama mostra a solucao alvo em funcionamento:
+  atores, repositorios, CI/CD, fluxos de autenticacao,
+  consumo de APIs e observabilidade.
+
+  Detalhes de subnets, security groups, IAM, ECR,
+  state Terraform e recursos AWS provisionados ficam em
+  aws-infra-components.puml.
 end note
 
 @enduml

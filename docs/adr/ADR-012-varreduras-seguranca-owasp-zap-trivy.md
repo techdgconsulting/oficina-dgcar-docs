@@ -46,12 +46,12 @@ Em PowerShell, o volume pode ser montado com:
 docker run --rm -v "${PWD}:/work" aquasec/trivy image --input /work/oficina-api.tar --severity HIGH,CRITICAL
 ```
 
-## Critérios De Avaliação
+## Avaliacao De Seguranca
 
 - Vulnerabilidades `CRITICAL` devem bloquear a entrega até correção, mitigação formal ou justificativa documentada.
 - Vulnerabilidades `HIGH` devem ser corrigidas quando houver versão corrigida disponível.
 - Vulnerabilidades sem versão corrigida devem ser avaliadas caso a caso, considerando exposição real, componente afetado e mitigação possível.
-- Alertas informativos do ZAP devem ser documentados quando forem esperados, por exemplo identificação de endpoint de autenticação.
+- Alertas informativos do ZAP devem ser documentados quando fizerem parte do comportamento conhecido, por exemplo identificação de endpoint de autenticação.
 - Alertas de exposição de erro devem ser tratados preferencialmente por payloads sanitizados e logs internos.
 
 ## Evidências

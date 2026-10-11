@@ -74,17 +74,14 @@ Container_Boundary(api, "API Spring Boot — Oficina Mecânica") {
 }
 
 ' Atores para adapters de entrada
-Rel(atendente, authCtrl, "Login e registro", "JSON/HTTPS")
-Rel(atendente, coreCtrls, "Clientes, veículos, OS, orçamentos, pagamentos e entregas", "JSON/HTTPS")
-Rel(mecanico, authCtrl, "Login", "JSON/HTTPS")
-Rel(mecanico, coreCtrls, "Diagnóstico, itens e finalização de serviço", "JSON/HTTPS")
-Rel(gestor, authCtrl, "Login e registro", "JSON/HTTPS")
-Rel(gestor, coreCtrls, "Acesso completo a cadastros, KPIs e OS", "JSON/HTTPS")
+Rel(atendente, apiGateway, "Login, registro e operacoes da oficina", "JSON/HTTPS")
+Rel(mecanico, apiGateway, "Login, diagnostico e execucao de servicos", "JSON/HTTPS")
+Rel(gestor, apiGateway, "Login, registro, cadastros, KPIs e OS", "JSON/HTTPS")
 Rel(cliente, apiGateway, "Autentica por CPF + senha e consulta OS por numero", "JSON/HTTPS")
 Rel(apiGateway, lambdaAuth, "POST /auth/cpf", "AWS_PROXY")
 Rel(lambdaAuth, db, "Consulta cliente por documento, status e senha_hash", "SQL/TCP")
+Rel(apiGateway, authCtrl, "Encaminha login interno e registro", "JSON/HTTPS")
 Rel(apiGateway, coreCtrls, "Encaminha APIs protegidas com Bearer JWT CLIENTE", "JSON/HTTPS")
-Rel(cliente, coreCtrls, "Consulta status da propria OS por numero", "JSON/HTTPS")
 
 ' Fluxo de entrada
 Rel(authCtrl, webDtos, "Mapeia requests e responses")

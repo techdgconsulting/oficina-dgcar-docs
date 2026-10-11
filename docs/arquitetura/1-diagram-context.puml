@@ -4,37 +4,44 @@
 LAYOUT_TOP_DOWN()
 LAYOUT_WITH_LEGEND()
 
-title Diagrama de Contexto — Sistema Oficina Mecânica DGCAR[C4 — Nível 1]
+title Diagrama de Contexto - Sistema Oficina Mecanica DGCar [C4 - Nivel 1]
 
-' ─── OBJETIVOS ────────────────────────────────────────────────────────
-'Visão ampla do sistema evidenciando a conexeção com sistemas externos.
+' Visao ampla do sistema atual, incluindo API Gateway e Lambda Auth.
 
-' ─── USO ──────────────────────────────────────────────────────────────
-'Ideal para gestores e stackholders que precisam de uma visão geral, sem entrar em detalhes técnicos.
+Person(atendente, "Atendente", "Perfil ATENDENTE. Cria OS, gera orcamentos, registra pagamentos, entrega veiculo, gerencia clientes e veiculos.")
+Person(mecanico, "Mecanico", "Perfil MECANICO. Inicia diagnostico, adiciona itens de pecas/servicos e finaliza o servico.")
+Person(gestor, "Gestor", "Perfil GESTOR. Acesso completo: operacoes da oficina, cadastros administrativos e KPIs.")
+Person(cliente, "Cliente", "Proprietario do veiculo. Autentica com CPF e senha, recebe JWT CLIENTE e consulta a propria OS.")
 
+System_Boundary(oficina, "Sistema Oficina Mecanica DGCar") {
+  System(apiGateway, "Amazon API Gateway", "Entrada oficial para autenticacao externa e APIs protegidas.")
+  System(lambdaAuth, "AWS Lambda Auth CPF + Senha", "Autentica cliente externo, consulta status/senha_hash e emite JWT CLIENTE.")
+  System(api, "API Spring Boot no EKS", "Gerencia o ciclo completo da oficina e valida JWT interno/externo.")
+  SystemDb(db, "Amazon RDS PostgreSQL", "Armazena clientes, usuarios, veiculos, OS, orcamentos, execucoes, pagamentos e entregas.")
+}
 
-' ─── PESSOAS ──────────────────────────────────────────────────────────────────
-Person(atendente, "Atendente", "Perfil ATENDENTE. Cria OS, gera orçamentos, registra pagamentos, entrega veículo, gerencia clientes e veículos.")
-Person(mecanico, "Mecânico", "Perfil MECANICO. Inicia diagnóstico, adiciona itens (peças/serviços) e finaliza o serviço.")
-Person(gestor, "Gestor", "Perfil GESTOR. Acesso completo: tudo do Atendente e Mecânico + CRUD peças/serviços + KPIs.")
-Person(cliente, "Cliente", "Proprietário do veículo. Consulta o status da OS sem login e aprova ou recusa orçamento por link público com token.")
+System_Ext(viacep, "ViaCEP API", "Servico publico brasileiro para consulta de endereco por CEP.")
+System_Ext(paymentGateway, "Gateway de Pagamento", "Processa e autoriza pagamentos. No projeto, a integracao e representada por adapter simulavel.")
+System_Ext(smtpServer, "Servidor SMTP", "Infraestrutura externa usada para envio de e-mails quando OFICINA_EMAIL_MODE=SMTP.")
+System_Ext(newRelic, "New Relic", "Observabilidade: logs, metricas, traces, dashboards e alertas.")
 
-' ─── SISTEMA PRINCIPAL ────────────────────────────────────────────────────────
-System(oficina, "Sistema de Gestão de Oficina Mecânica", "Gerencia o ciclo completo: cadastro de clientes e veículos, abertura de OS, diagnóstico, orçamento, execução, pagamento, entrega e encerramento.")
+Rel(cliente, apiGateway, "Autentica por CPF/senha e consulta OS", "HTTPS/JSON")
+Rel(atendente, apiGateway, "Opera clientes, veiculos, OS, orcamentos, pagamentos e entregas", "HTTPS/JSON + JWT interno")
+Rel(mecanico, apiGateway, "Executa diagnostico e servicos", "HTTPS/JSON + JWT interno")
+Rel(gestor, apiGateway, "Opera cadastros, KPIs e administracao", "HTTPS/JSON + JWT interno")
 
-' ─── SISTEMAS EXTERNOS ────────────────────────────────────────────────────────
-System_Ext(viacep, "ViaCEP API", "Serviço público brasileiro. Retorna logradouro, bairro, cidade e UF a partir de um CEP informado.")
-System_Ext(gateway, "Gateway de Pagamento", "Processa e autoriza pagamentos. Recebe método e valor; retorna aprovação ou recusa com código de transação. No projeto, a integração é representada por adapter simulável.")
-System_Ext(smtpServer, "Servidor SMTP", "Infraestrutura externa usada para envio real de e-mails de orçamento e status da OS quando OFICINA_EMAIL_MODE=SMTP.")
+Rel(apiGateway, lambdaAuth, "POST /auth/cpf", "AWS_PROXY")
+Rel(lambdaAuth, db, "Consulta cliente por documento, status_cliente e senha_hash", "SQL/TCP")
+Rel(apiGateway, api, "Encaminha APIs protegidas", "HTTPS/JSON")
+Rel(api, db, "Le e escreve dados da oficina", "SQL/TCP")
 
-' ─── RELACIONAMENTOS ──────────────────────────────────────────────────────────
-Rel(atendente, oficina, "Cria OS, gera orçamentos, registra pagamentos, gerencia clientes e veículos", "JSON/HTTPS")
-Rel(mecanico, oficina, "Inicia diagnóstico, adiciona itens, finaliza serviço", "JSON/HTTPS")
-Rel(gestor, oficina, "Acesso completo: CRUD peças/serviços, KPIs, todas as operações", "JSON/HTTPS")
-Rel(cliente, oficina, "Consulta status da OS pelo número e aprova/recusa orçamento por token, sem login", "JSON/HTTPS")
-Rel(oficina, viacep, "Consulta endereço por CEP ao cadastrar/editar cliente", "HTTP GET")
-Rel(oficina, gateway, "Envia valor e método; recebe aprovação ou recusa", "HTTPS")
-Rel(oficina, smtpServer, "Envia notificações de orçamento e status da OS", "SMTP")
-Rel(smtpServer, cliente, "Entrega e-mails com links de decisão e atualizações de status", "E-mail")
+Rel(api, viacep, "Consulta endereco por CEP", "HTTP GET")
+Rel(api, paymentGateway, "Envia valor e metodo; recebe aprovacao/recusa", "HTTPS")
+Rel(api, smtpServer, "Envia notificacoes de orcamento e status da OS", "SMTP")
+Rel(smtpServer, cliente, "Entrega e-mails", "E-mail")
+
+Rel(apiGateway, newRelic, "Metricas e logs de entrada", "Telemetry")
+Rel(lambdaAuth, newRelic, "Logs e metricas da autenticacao", "Telemetry")
+Rel(api, newRelic, "Logs, metricas e traces da aplicacao", "Telemetry")
 
 @enduml
