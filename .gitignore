@@ -13,3 +13,6 @@ docs/evidencias/
 /.github/workflows/destruir-ambiente-academico.yml
 
 docs/infraestrutura/
+
+# Material de apoio local
+/PROMPT-TECH-CHALLENGE-3.md
