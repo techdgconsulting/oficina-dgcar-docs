@@ -14,7 +14,7 @@ O fluxo implementado utiliza CPF e senha. O CPF identifica o cliente, mas nao e 
 
 ## Problema
 
-CPF isolado e dado identificador, nao segredo. Autenticar cliente apenas por CPF aumentaria risco de personificacao, enumeracao e acesso indevido a ordens de servico.
+CPF isolado é dado identificador, não segredo. Autenticar cliente apenas por CPF aumentaria risco de personificacao, enumeracao e acesso indevido a ordens de servico.
 
 O modelo interno de usuarios tambem nao deve ser reutilizado para clientes externos, porque misturaria atores operacionais da oficina com clientes finais e enfraqueceria a autorizacao baseada em perfis.
 
@@ -144,7 +144,7 @@ O cliente nao informa `clienteId` em rotas externas. A API extrai a identidade d
 
 ## Relacao Com O Tech Challenge
 
-Esta arquitetura atende ao requisito de Function Serverless para validar cliente, consultar base de dados e gerar token JWT para consumo de APIs protegidas. A evolucao para CPF + senha preserva o requisito academico e fortalece a seguranca do fluxo.
+Esta arquitetura atende ao requisito de Function Serverless para validar cliente, consultar base de dados e gerar token JWT para consumo de APIs protegidas. A evolucao para CPF + senha atende ao fluxo de autenticação do ambiente AWS DGCar e fortalece a seguranca do fluxo.
 
 ## Relacao Com Outros Documentos
 

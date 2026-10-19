@@ -1,15 +1,17 @@
-# RFC-001: Escolha Da AWS Como Cloud Alvo
+# RFC-001: Escolha Da AWS Como Cloud
 
 **Status:** Aceito  
 **Data:** 2026-09-27  
 **Contexto:** Tech Challenge Fase 3   
-**Escopo:** Arquitetura cloud alvo
+**Escopo:** Arquitetura cloud
 
 ## Contexto
 
+**Nota de leitura — 16/10/2026:** esta RFC preserva a proposta de escolha da cloud registrada em 27/09/2026, inclusive seu status original. AWS é a plataforma implementada; a linguagem de proposta e de próximas fases abaixo pertence ao histórico, não ao estado operacional atual. Os fundamentos estão na [ADR-019](../adr/ADR-019-infraestrutura-aws-terraform-kubernetes.md), e a solução de observabilidade entregue está na [RFC-004](RFC-004-observabilidade-new-relic.md). Os READMEs técnicos descrevem o provisionamento atual por ambiente.
+
 O projeto Oficina Mecanica DGCar ja possui uma base de infraestrutura em AWS, com Terraform, Amazon EKS, Amazon ECR, Amazon RDS PostgreSQL, Amazon S3 para state remoto e GitHub Actions. O novo desafio exige API Gateway, Function Serverless, banco gerenciado, Kubernetes escalavel, observabilidade e CI/CD completo em repositorios separados.
 
-Esta RFC define a cloud alvo antes da separacao fisica dos repositorios e antes da implementacao dos novos componentes.
+Esta RFC define a cloud antes da separacao fisica dos repositorios e antes da implementacao dos novos componentes.
 
 ## Problema
 
@@ -26,7 +28,7 @@ A arquitetura precisa evoluir para um ambiente corporativo demonstravel, com seg
 
 ## Decisao Proposta
 
-Usar AWS como cloud alvo da fase.
+Usar AWS como cloud.
 
 ## Justificativa
 
@@ -44,7 +46,7 @@ Usar AWS como cloud alvo da fase.
 - As proximas fases devem separar a infraestrutura AWS em repositorios e estados Terraform coerentes.
 - Os custos de EKS, RDS, Load Balancer, API Gateway e Lambda precisam ser controlados.
 - As permissoes IAM devem ser documentadas e minimizadas.
-- Os diagramas e READMEs dos quatro repositorios devem assumir AWS como plataforma alvo.
+- Os diagramas e READMEs dos quatro repositorios devem assumir AWS como plataforma.
 
 ## Riscos
 

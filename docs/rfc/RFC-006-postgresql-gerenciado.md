@@ -98,6 +98,6 @@ Esta RFC cobre a decisao tecnica de banco de dados solicitada na documentacao ar
 - [`ADR-003`](../adr/ADR-003-postgresql.md): decisao original por PostgreSQL.
 - [`ADR-017`](../adr/ADR-017-postgresql-gerenciado.md): decisao arquitetural permanente por PostgreSQL gerenciado.
 - [`RFC-005`](./RFC-005-separacao-terraform-k8s-banco.md): separacao do Terraform de banco e Kubernetes.
-- [`justificativa-postgresql.md`](../banco/justificativa-postgresql.md): justificativa formal do banco.
+- [ADR-003](../adr/ADR-003-postgresql.md) e [ADR-017](../adr/ADR-017-postgresql-gerenciado.md): escolha do PostgreSQL e adoção do serviço gerenciado.
 - [`modelo-relacional.md`](../banco/modelo-relacional.md): relacionamentos e ajustes do schema.
 - [`diagrama-er.puml`](../banco/diagrama-er.puml): diagrama ER do schema entregue.

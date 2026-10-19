@@ -24,7 +24,9 @@ Manter PostgreSQL gerenciado via Amazon RDS como banco corporativo da solucao.
 
 ## Impacto Na Modelagem
 
-As proximas fases devem produzir:
+O levantamento original registrou os itens abaixo. Esta lista preserva o histórico da decisão, não define pendências atuais. A modelagem está em [docs/banco](../banco), e a migration V18 da API já inclui `clientes.status_cliente`. A escolha do PostgreSQL pertence à [ADR-003](ADR-003-postgresql.md); esta ADR detalha o uso gerenciado, enquanto a [ADR-019](ADR-019-infraestrutura-aws-terraform-kubernetes.md) registra os fundamentos comuns da infraestrutura.
+
+Itens do levantamento original:
 
 - diagrama ER;
 - dicionario de dados;
@@ -44,6 +46,12 @@ O banco gerenciado deve considerar:
 - parametros de conexao controlados por segredo;
 - monitoramento de conexoes, CPU, memoria e storage;
 - estrategia de migracao via Flyway.
+
+## Proteção e retenção por ambiente
+
+A configuração de homolog prioriza o uso temporário para validação: retenção automática zero, sem proteção contra exclusão e sem snapshot final. A configuração de prod prioriza a preservação dos dados: retenção automática de sete dias, proteção contra exclusão e snapshot final.
+
+Essa distinção reduz o custo do ambiente de validação e protege os dados de produção. Como consequência, o procedimento de remoção de homolog não pode ser considerado equivalente ao de prod. Os comandos, a preparação da instância e as limitações atuais da automação ficam no [guia operacional de infra-k8s](https://github.com/techdgconsulting/oficina-dgcar-infra-k8s/blob/homolog/docs/OPERACAO-AMBIENTE.md) e no [guia do banco](https://github.com/techdgconsulting/oficina-dgcar-infra-db/blob/homolog/docs/OPERACAO.md).
 
 ## Consequencias Positivas
 

@@ -113,3 +113,5 @@ var paths = PathPatternRequestMatcher.withDefaults();
 ```
 
 O `SanitizedErrorController` trata o fallback `/error` e retorna somente `timestamp`, `status` e `erro`. Campos como `path`, `error`, `exception`, `trace` e `message` não são expostos ao cliente. Detalhes técnicos permanecem restritos aos logs internos.
+
+Chamadas diretas a `/error`, sem contexto de erro do servidor, retornam `404`, pois essa rota é um fallback interno. Encaminhamentos reais de erro preservam o status original; na ausência de um status válido em um dispatch de erro, permanece o fallback `500`. O controller usa `@Hidden` para não publicar a rota interna no contrato OpenAPI. Essa distinção evita gerar erros internos artificiais durante a importação e a varredura do ZAP, sem mascarar falhas reais.

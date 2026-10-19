@@ -2,6 +2,7 @@
 
 **Status:** Aceito  
 **Data:** 2026-05-22  
+**Revisão das dependências:** 2026-10-19
 **Autor:** Diego Gonzalez  
 **Contexto do Projeto:** Sistema de Oficina Mecânica DGCar - Pós-graduação FIAP
 
@@ -29,14 +30,14 @@ O projeto exige uma plataforma backend consolidada, com suporte a DDD tático, p
 
 ---
 
-### 2. Framework: Spring Boot 3.5.16
+### 2. Framework: Spring Boot 4.0.8
 
-**Decisão:** Spring Boot 3.5.16 como framework principal.
+**Decisão:** Spring Boot 4.0.8 como framework principal.
 
 **Justificativas:**
 - Autoconfiguração elimina XML e reduz boilerplate de infraestrutura
 - Integração nativa com Spring Data JPA, Spring Security e Spring Web MVC
-- Versão 3.x requer Java 17+ (alinhado com a decisão de Java 17)
+- Java 17 permanece definido no POM da aplicação
 - Ecossistema maduro, amplamente adotado na indústria
 
 | Alternativa | Motivo da rejeição |
@@ -82,16 +83,16 @@ O projeto exige uma plataforma backend consolidada, com suporte a DDD tático, p
 
 ---
 
-### 5. Documentação de API: SpringDoc OpenAPI 2.8.17
+### 5. Documentação de API: SpringDoc OpenAPI 3.0.3
 
-**Decisão:** `springdoc-openapi-starter-webmvc-ui` versão 2.8.17 para geração automática do contrato OpenAPI 3.0 e interface Swagger UI.
+**Decisão:** `springdoc-openapi-starter-webmvc-ui` versão 3.0.3 para geração automática do contrato OpenAPI e interface Swagger UI.
 
 **Acesso em desenvolvimento:** `http://localhost:8080/swagger-ui.html`
 
 **Justificativas:**
 - Geração automática a partir das anotações `@RestController` e `@RequestMapping`
 - `@Operation` e `@Tag` enriquecem a documentação sem overhead de manutenção
-- Compatível com Spring Boot 3.x (springdoc v2 exigido — v1 não é compatível)
+- A linha SpringDoc 3.x acompanha a migração da aplicação para Spring Boot 4.x
 
 | Alternativa | Motivo da rejeição |
 |-------------|-------------------|
@@ -130,12 +131,12 @@ O projeto exige uma plataforma backend consolidada, com suporte a DDD tático, p
 
 ### 8. Testes de Integração com PostgreSQL: Testcontainers
 
-**Decisão:** manter `org.testcontainers:junit-jupiter` + `org.testcontainers:postgresql` declarados como dependências de teste para evolução futura da suíte com PostgreSQL real em container Docker.
+**Decisão:** manter `org.testcontainers:testcontainers-junit-jupiter` + `org.testcontainers:testcontainers-postgresql` declarados como dependências de teste para evolução futura da suíte com PostgreSQL real em container Docker.
 
 **Justificativas:**
 - Elimina dependência de banco de dados externo quando testes de integração com PostgreSQL forem adicionados
 - PostgreSQL real no teste aumenta fidelidade com o ambiente principal em comparação ao H2
-- Integração nativa com JUnit 5 via `@Testcontainers` + `@Container`
+- Integração com JUnit Jupiter via `@Testcontainers` + `@Container`
 
 **Estado atual:** a suíte automatizada atual não usa Testcontainers; os testes rodam com H2 em memória no perfil `test`. O uso de Testcontainers permanece como extensão planejada para cenários de CI/CD que precisem validar migrations, constraints e dialeto PostgreSQL.
 
@@ -152,7 +153,7 @@ O projeto exige uma plataforma backend consolidada, com suporte a DDD tático, p
 
 **Justificativas:**
 - Relatórios HTML navegáveis com agrupamento por `@Epic`, `@Feature` e `@Story`
-- Integração nativa com JUnit 5 via anotações declarativas nos testes
+- Integração com JUnit Jupiter via anotações declarativas nos testes
 - Geração automática junto ao ciclo `mvn test` via maven-surefire-plugin
 
 ---
@@ -192,7 +193,7 @@ O projeto exige uma plataforma backend consolidada, com suporte a DDD tático, p
 
 **Decisão:** manter a definição de infraestrutura e deploy versionada no repositório, usando Terraform para provisionamento AWS, Kubernetes para execução da aplicação, Amazon EKS como cluster gerenciado, Amazon ECR para imagens Docker, Amazon RDS PostgreSQL para banco gerenciado, Amazon S3 para backend remoto do Terraform state e GitHub Actions para CI/CD.
 
-> As decisoes consolidadas de infraestrutura, Terraform, Kubernetes e separacao de repositorios estao documentadas em [`ADR-019-infraestrutura-aws-terraform-kubernetes.md`](ADR-019-infraestrutura-aws-terraform-kubernetes.md).
+> Os fundamentos da infraestrutura estão em [ADR-019](ADR-019-infraestrutura-aws-terraform-kubernetes.md). Esta ADR resume a escolha do stack; parâmetros e procedimentos atuais são mantidos nas ADRs específicas e nos READMEs técnicos indicados naquele registro.
 
 **Justificativas:**
 - Terraform permite provisionamento reprodutível da infraestrutura AWS.
@@ -200,7 +201,7 @@ O projeto exige uma plataforma backend consolidada, com suporte a DDD tático, p
 - ECR centraliza imagens Docker versionadas e consumidas pelo cluster.
 - RDS PostgreSQL aproxima o ambiente em nuvem do banco relacional principal definido na ADR-003.
 - S3 como backend remoto preserva o `terraform.tfstate` entre execuções locais e pipelines.
-- GitHub Actions executa provisionamento e teardown centralizados no repo `oficina-dgcar-infra-k8s`, mantendo o deploy da aplicacao em workflow proprio e evitando que commits de codigo executem `terraform apply` automaticamente.
+- GitHub Actions separa o provisionamento completo manual em infra-k8s (`provision-homolog.yml`/`provision-prod.yml`) do deploy da API (`app-cd.yml`). Banco e Lambda usam seus próprios workflows por dispatch. `infra.yml` é a referência histórica anterior à separação dos repositórios.
 
 **Configuração atual:**
 - Terraform `>= 1.6.0`
@@ -213,12 +214,30 @@ O projeto exige uma plataforma backend consolidada, com suporte a DDD tático, p
 
 ---
 
+## Revisão de dependências após análise Trivy
+
+A revisão de 19/10/2026 reflete a configuração local do [POM da API](https://github.com/techdgconsulting/oficina-dgcar-api/blob/homolog/pom.xml). A migração substitui a configuração anterior com Spring Boot 3.5.16 e SpringDoc 2.8.17. A data original da ADR registra a decisão inicial.
+
+| Componente | Configuração atual no POM |
+|---|---|
+| Spring Boot parent | `4.0.8` |
+| Jackson BOM principal | `3.1.7` (`jackson-bom.version`) |
+| Jackson 2 BOM | `2.22.3` (`jackson-2-bom.version`) |
+| Tomcat | `11.0.27` (`tomcat.version`) |
+| SpringDoc OpenAPI | `3.0.3` |
+| Apache Commons Lang | `3.18.0` (`commons-lang3.version`) |
+| Driver JDBC PostgreSQL | `42.7.12` (`postgresql.version`) |
+
+Os BOMs Jackson 3 e Jackson 2 gerenciam as dependências das respectivas linhas. O starter web passa a ser `spring-boot-starter-webmvc`; a integração Flyway usa `spring-boot-starter-flyway` e `flyway-database-postgresql`. Os starters de testes e artefatos Testcontainers atuais estão na [ADR-009](ADR-009-estrategia-testes.md).
+
+O parent e os overrides do POM determinam as versões gerenciadas. O escopo e as evidências das varreduras estão na [ADR-012](ADR-012-varreduras-seguranca-owasp-zap-trivy.md).
+
 ## Resumo do Stack
 
 | Camada | Tecnologia | Versão |
 |--------|-----------|--------|
 | Linguagem | Java | 17 (LTS) |
-| Framework | Spring Boot | 3.5.16 |
+| Framework | Spring Boot | 4.0.8 |
 | Build | Maven | (spring-boot-starter-parent) |
 | Web | Spring Web MVC | (managed) |
 | Persistência | Spring Data JPA / Hibernate | (managed) |
@@ -228,13 +247,13 @@ O projeto exige uma plataforma backend consolidada, com suporte a DDD tático, p
 | Banco Dev | H2 | (managed) |
 | Migrations | Flyway | (managed + ADR-005) |
 | Boilerplate | Lombok | (managed) |
-| Documentação API | SpringDoc OpenAPI | 2.8.17 |
+| Documentação API | SpringDoc OpenAPI | 3.0.3 |
 | Cobertura | JaCoCo | 0.8.12 |
 | Relatórios de Teste | Allure | 2.27.0 |
 | Testes Integração | Testcontainers | Declarado para evolução futura |
 | E-mail | Spring Mail / SMTP | (managed) |
 | Containerização | Docker / Docker Compose | (ADR-006) |
 | Infraestrutura como Código | Terraform + AWS Provider | Terraform >= 1.6.0 / AWS Provider ~> 5.0 |
-| Kubernetes | Kubernetes + Amazon EKS + Kustomize | (ADR-Infra) |
-| Cloud AWS | EKS, ECR, RDS PostgreSQL, S3, IAM, VPC e Security Groups | (ADR-Infra) |
-| CI/CD | GitHub Actions | `Provisionar Ambiente Homolog`, `Destruir Ambiente Homolog` e workflow de deploy da aplicacao |
+| Kubernetes | Kubernetes + Amazon EKS + Kustomize | (ADR-019) |
+| Cloud AWS | EKS, ECR, RDS PostgreSQL, S3, IAM, VPC e Security Groups | (ADR-019) |
+| CI/CD | GitHub Actions | Workflows por repositório; gatilhos nos READMEs técnicos |

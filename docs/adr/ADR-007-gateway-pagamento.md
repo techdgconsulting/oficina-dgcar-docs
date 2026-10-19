@@ -9,7 +9,7 @@
 
 O fluxo de Ordem de Serviço termina com o registro de pagamento (`POST /api/ordens-servico/{id}/pagamento`). Em um cenário real, esse registro depende de um **provedor externo de pagamento** (Stripe, Mercado Pago, PagSeguro, Cielo, etc.) que autoriza ou recusa a cobrança.
 
-Era necessário decidir como representar essa integração no projeto acadêmico, sem introduzir dependências externas (chaves de API, SDKs proprietários) nem flakiness em testes, mas mantendo a possibilidade de plugar um provedor real no futuro.
+Era necessário decidir como representar essa integração no ambiente AWS DGCar, sem introduzir dependências externas (chaves de API, SDKs proprietários) nem flakiness em testes, mas mantendo a possibilidade de plugar um provedor real no futuro.
 
 ## Decisão
 

@@ -28,7 +28,7 @@ A aplicacao principal deve reconhecer explicitamente tokens com claim `tipo=CLIE
 - Protege a aplicacao em cenarios de chamada indevida, configuracao incorreta de rota ou mudanca futura na borda.
 - Mantem separacao clara entre cliente externo e usuarios internos.
 - Permite testar regras de autorizacao de cliente na propria suite da aplicacao.
-- Facilita auditoria e demonstracao academica do controle de acesso em mais de uma camada.
+- Facilita auditoria e verificação do controle de acesso no ambiente AWS DGCar em mais de uma camada.
 
 ## Regras De Validacao
 

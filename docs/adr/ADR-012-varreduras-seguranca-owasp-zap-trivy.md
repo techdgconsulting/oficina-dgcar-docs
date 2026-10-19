@@ -2,6 +2,7 @@
 
 **Status:** Aceito  
 **Data:** 2026-08-13  
+**Revisão das dependências e evidências:** 2026-10-19
 **Autor:** Diego Gonzalez  
 **Contexto do Projeto:** Sistema de Oficina Mecânica DGCar - Pós-graduação FIAP
 
@@ -54,7 +55,24 @@ docker run --rm -v "${PWD}:/work" aquasec/trivy image --input /work/oficina-api.
 - Alertas informativos do ZAP devem ser documentados quando fizerem parte do comportamento conhecido, por exemplo identificação de endpoint de autenticação.
 - Alertas de exposição de erro devem ser tratados preferencialmente por payloads sanitizados e logs internos.
 
-## Evidências
+## Atualizações de dependências e evidências atuais
+
+A configuração local da API foi atualizada no contexto das correções verificadas com Trivy. O [POM da API](https://github.com/techdgconsulting/oficina-dgcar-api/blob/homolog/pom.xml) define Spring Boot **4.0.8** (antes 3.5.16), Jackson BOM **3.1.7** (antes 2.22.0), Jackson 2 BOM **2.22.3**, Tomcat **11.0.27** e SpringDoc **3.0.3** (antes 2.8.17). Commons Lang **3.18.0** e driver PostgreSQL **42.7.12** já constavam no POM anterior à migração e permanecem explicitados.
+
+A migração também ajusta starters web, Flyway e testes e os nomes dos artefatos Testcontainers. O inventário está na [ADR-008](ADR-008-stack-tecnologico.md) e na [ADR-009](ADR-009-estrategia-testes.md).
+
+Os relatórios locais de **17/10/2026**, gerados com Trivy **0.73.0**, usam o filtro `HIGH,CRITICAL` e registram:
+
+| Análise | HIGH | CRITICAL | Evidência na API |
+|---|---:|---:|---|
+| Dependências Maven | 0 | 0 | `docs/ReportTRIVY/trivy-dependencies-report.json` |
+| Imagem Docker — pacotes do sistema e bibliotecas Java | 0 | 0 | `docs/ReportTRIVY/trivy-image-report.json` |
+
+O resultado se limita aos artefatos e à base de vulnerabilidades daquela execução. Não representa uma análise de outras severidades nem comprova a versão implantada em homolog ou prod. Esses relatórios sem achados não registram uma associação individual entre CVEs e alterações de versão; essa comparação depende da evidência anterior.
+
+Os comandos de geração e conversão para HTML estão no [README da API](https://github.com/techdgconsulting/oficina-dgcar-api#análise-de-vulnerabilidades-com-trivy). Os arquivos ficam no [diretório ReportTRIVY da API](https://github.com/techdgconsulting/oficina-dgcar-api/tree/homolog/docs/ReportTRIVY). Os links GitHub devem ser conferidos contra a revisão publicada: mudanças e arquivos locais ainda sem commit não aparecem automaticamente na branch.
+
+## Preservação das evidências
 
 As evidências podem ser salvas em `docs/ReportOWASP/` e `docs/ReportTRIVY/`, mantendo a data ou contexto da execução no nome do arquivo.
 
@@ -92,6 +110,6 @@ Relatórios antigos devem ser preservados como histórico quando forem relevante
 
 ## Relação Com Outros Documentos
 
-- `README.md`: documenta comandos práticos para executar OWASP ZAP e Trivy.
+- [README da API](https://github.com/techdgconsulting/oficina-dgcar-api#readme): apresenta os procedimentos Trivy; o contrato de entrada e os comandos de análise da imagem também estão nesta ADR.
 - `ADR-004`: documenta respostas de erro sanitizadas e fallback `/error`.
 - `ADR-009`: documenta a estratégia de testes automatizados, complementada por estas varreduras de segurança.

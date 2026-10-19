@@ -6,4 +6,10 @@
 .DS_Store
 Thumbs.db
 docs/evidencias/
+
+# Automacoes locais fora do escopo do repositorio documental
+/scripts/
+/.github/workflows/provisionar-ambiente-academico.yml
+/.github/workflows/destruir-ambiente-academico.yml
+
 docs/infraestrutura/

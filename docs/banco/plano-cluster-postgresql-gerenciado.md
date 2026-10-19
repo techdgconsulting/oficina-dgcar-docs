@@ -6,7 +6,7 @@ O banco gerenciado foi definido como Amazon RDS PostgreSQL, provisionado por Ter
 
 | Ambiente | Uso | Configuracao |
 |---|---|---|
-| `homolog` | Demonstracao e validacao academica | Instancia economica, backup reduzido, acesso privado |
+| `homolog` | Validação do ambiente AWS DGCar | Instancia economica, backup reduzido, acesso privado |
 | `prod` | Ambiente produtivo conceitual | Backup automatico, protecao contra exclusao e sizing parametrizado |
 
 ## Seguranca

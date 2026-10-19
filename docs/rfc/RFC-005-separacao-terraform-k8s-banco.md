@@ -7,6 +7,8 @@
 
 ## Contexto
 
+**Nota de leitura — 16/10/2026:** este documento preserva a proposta de separação de 27/09/2026 e seu status original. A separação entre infra-k8s e infra-db está implementada. As alternativas de `terraform_remote_state`, a sequência de migração e os verbos no futuro abaixo são histórico da proposta, não instruções de operação atuais. A orquestração provisiona a rede antes do banco e da Lambda; o workflow atual de infra-db não publica automaticamente os secrets de conexão nos consumidores. Os READMEs técnicos registram as entradas e os gatilhos efetivos. A [ADR-019](../adr/ADR-019-infraestrutura-aws-terraform-kubernetes.md) trata dos fundamentos; esta RFC explica a separação dos estados.
+
 O projeto atual possui Terraform para provisionar recursos de infraestrutura em uma estrutura unica. A nova fase exige quatro repositorios e separa explicitamente infraestrutura Kubernetes e infraestrutura de banco de dados gerenciado.
 
 ## Problema

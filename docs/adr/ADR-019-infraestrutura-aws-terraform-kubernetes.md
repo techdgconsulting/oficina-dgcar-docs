@@ -1,68 +1,224 @@
-# ADR-019: Infraestrutura AWS Com Terraform E Kubernetes
+# ADR-019: Infraestrutura AWS com Terraform e Kubernetes
 
-**Status:** Aceito  
-**Data:** 2026-10-10  
-**Autor:** Diego Gonzalez  
-**Contexto do Projeto:** Sistema de Oficina Mecanica DGCar - Pos-graduacao FIAP
+**Status:** Aceito
+**Data:** 2026-08-10
+**Autor:** Diego Gonzalez
+**Contexto do Projeto:** Sistema de Oficina Mecânica DGCar - Pós-graduação FIAP
 
 ## Contexto
 
-A solucao evoluiu de um ambiente local para uma arquitetura em nuvem com entrada por API Gateway, autenticacao externa por Lambda, aplicacao Spring Boot executada em Kubernetes e banco PostgreSQL gerenciado.
+Este documento preserva o registro consolidado da infraestrutura base de 10/08/2026. Foi realocado e numerado como ADR-019 em 16/10/2026, seguindo a sequência das ADRs e a identificação do mesmo tema em origin/main. O conteúdo revisado da branch local e a data da decisão original foram preservados. Não constitui uma segunda especificação operacional dos temas detalhados nas ADRs posteriores.
 
-Essa evolucao exige infraestrutura reprodutivel, separacao clara de responsabilidades, protecao de segredos, deploy automatizavel e capacidade de destruir o ambiente academico para controle de custo.
+## Escopo e relação com as decisões específicas
 
-## Decisao
+| Tema | Papel deste registro | Referência específica |
+|---|---|---|
+| Estado Terraform, configuração e segredos | Fundamentos e justificativas da infraestrutura base | Este documento |
+| Stack e containerização | Contexto da execução em AWS | [ADR-008](ADR-008-stack-tecnologico.md) e [ADR-006](ADR-006-docker-containerizacao.md) |
+| Banco e migrations | Uso de banco gerenciado e schema versionado | [ADR-003](ADR-003-postgresql.md) e [ADR-017](ADR-017-postgresql-gerenciado.md) |
+| Entrada da aplicação | Service como backend da aplicação | [ADR-013](ADR-013-api-gateway-entrada-oficial.md): API Gateway como entrada oficial |
+| Escalabilidade | Justificativa para HPA e necessidade de evidência | [ADR-015](ADR-015-hpa-cluster-autoscaling.md): parâmetros, diferenças entre manifesto e workflow e ensaio |
+| Logs e observabilidade | Contexto operacional | [ADR-016](ADR-016-logs-estruturados-correlation-id.md) e [RFC-004](../rfc/RFC-004-observabilidade-new-relic.md) |
+| Estados e repositórios separados | Evolução da organização inicial | [RFC-005](../rfc/RFC-005-separacao-terraform-k8s-banco.md) e READMEs dos repositórios técnicos |
 
-Adotar AWS como provedor de nuvem, Terraform como mecanismo de provisionamento e Amazon EKS como plataforma Kubernetes para execucao da aplicacao principal.
+O contexto original abaixo explica a decisão de migrar a aplicação local para AWS. Os parâmetros atuais de homolog e prod e os procedimentos de execução estão nos documentos específicos, evitando regras concorrentes nesta ADR.
 
-A infraestrutura fica organizada em repositorios tecnicos separados:
+### Contexto original
+A aplicação foi preparada para evoluir de um ambiente local para uma execução em nuvem, com foco em reprodutibilidade, segurança, isolamento de segredos e custo controlado. Para isso, a infraestrutura precisa ser tratada como parte do projeto, com decisões explícitas sobre armazenamento de estado, provisionamento de recursos, banco de dados, deploy no Kubernetes e proteção de credenciais.
 
-| Repositorio | Responsabilidade |
-|---|---|
-| `oficina-dgcar-infra-db` | Amazon RDS PostgreSQL, parametros, rede e outputs de banco |
-| `oficina-dgcar-infra-k8s` | EKS, ECR, API Gateway, integracoes, manifests Kubernetes e HPA |
-| `oficina-dgcar-api` | Aplicacao Spring Boot, imagem Docker, testes, Swagger/OpenAPI e Postman |
-| `oficina-dgcar-auth-lambda` | Lambda de autenticacao externa por CPF e senha |
+## Decisões de infraestrutura
 
-## Decisoes Complementares
+### 1. Backend remoto do Terraform
+**Decisão:** utilizar um bucket S3 como backend remoto do Terraform.
 
-- Usar backend remoto para o estado Terraform.
-- Separar estado Terraform de banco e estado Terraform de Kubernetes.
-- Executar a aplicacao principal em pods Kubernetes no EKS.
-- Publicar imagens da aplicacao no Amazon ECR.
-- Usar API Gateway como entrada oficial externa.
-- Manter RDS PostgreSQL como banco gerenciado.
-- Externalizar configuracoes por variaveis, ConfigMaps e Secrets.
-- Usar HPA para escalabilidade horizontal da aplicacao.
-- Usar pipelines GitHub Actions com environments protegidos para provisionamento, deploy e teardown.
+**Por quê:**
+- o estado do Terraform precisa ser armazenado de forma centralizada e persistente;
+- o uso de um backend remoto evita perda de informações entre execuções e ambientes;
+- o bucket S3 permite versionamento e lock, reduzindo riscos de sobrescrita simultânea;
+- essa abordagem torna a infraestrutura mais segura e mais adequada para equipes e pipelines.
 
-## Justificativa
+**Consequência:** a criação do backend ocorre antes da infraestrutura principal, pois o estado remoto precisa de um local válido para ser armazenado.
 
-A separacao entre banco, Kubernetes, aplicacao e Lambda reduz acoplamento operacional e facilita demonstrar ownership tecnico por repositorio.
+### 2. Configurar o backend S3 na infraestrutura principal
+**Decisão:** manter a configuração do backend separada da infraestrutura principal.
 
-O Terraform permite reprodutibilidade e rastreabilidade da infraestrutura. O EKS atende ao requisito de execucao em Kubernetes com escalabilidade via HPA. O RDS reduz a carga operacional do banco e preserva compatibilidade com o modelo relacional PostgreSQL existente.
+**Por quê:**
+- o backend remoto depende de recursos específicos da conta AWS e não deve ser tratado como parte do mesmo fluxo de criação da infraestrutura de aplicação;
+- essa separação reduz risco de dependência circular e melhora a clareza de responsabilidade;
+- facilita a reutilização do mesmo backend em diferentes ambientes ou ciclos de provisionamento.
 
-## Consequencias Positivas
+**Consequência:** a infraestrutura principal passa a depender de um estado remoto estável e compartilhado, em vez de trabalhar apenas com estado local.
 
-- Infraestrutura versionada e reprodutivel.
-- Responsabilidades claras entre repositorios.
-- Deploy e teardown automatizaveis.
-- Entrada externa padronizada por API Gateway.
-- Banco gerenciado com menor operacao manual.
-- Escalabilidade horizontal da API por HPA.
+### 3. Criar a infraestrutura AWS principal
+**Decisão:** provisionar a infraestrutura principal na AWS com VPC, EKS, ECR, RDS e grupos de segurança.
 
-## Consequencias Negativas
+**Por quê:**
+- a aplicação precisa de um ambiente controlado para execução em produção;
+- o EKS oferece um ambiente Kubernetes gerenciado, reduzindo a complexidade operacional;
+- o ECR centraliza a imagem Docker da aplicação;
+- o RDS garante um banco gerenciado e mais confiável do que uma instância local;
+- a VPC e os security groups permitem um ambiente mais seguro e isolado.
 
-- Mais repositorios e pipelines para coordenar.
-- Dependencia de outputs entre estados Terraform.
-- Maior cuidado com segredos e environments.
-- Custo operacional maior que execucao local.
+**Consequência:** a aplicação passa a ser executada em uma arquitetura compatível com deploy automatizado e escalabilidade.
 
-## Relacao Com Outros Documentos
+### 4. Estratégia de banco de dados
+**Decisão:** tratar o banco de dados como um recurso gerenciado e evoluir seu schema por migrations versionadas.
 
-- [RFC-001](../rfc/RFC-001-aws-cloud.md): escolha da AWS como cloud alvo.
-- [RFC-003](../rfc/RFC-003-separacao-repositorios-github.md): separacao em repositorios especializados.
-- [RFC-005](../rfc/RFC-005-separacao-terraform-k8s-banco.md): separacao dos estados Terraform.
-- [ADR-013](ADR-013-api-gateway-entrada-oficial.md): API Gateway como entrada oficial.
-- [ADR-015](ADR-015-hpa-cluster-autoscaling.md): HPA e estrategia de escalabilidade.
-- [ADR-017](ADR-017-postgresql-gerenciado.md): PostgreSQL gerenciado como banco corporativo.
+**Por quê:**
+- o banco deve ser reprodutível em ambientes locais, Kubernetes e AWS;
+- mudanças de schema precisam ser rastreáveis e auditáveis;
+- o uso de migrations evita alterações manuais e inconsistentes no banco;
+- o Flyway permite integração natural com a aplicação Spring Boot e com o ciclo de deploy.
+
+**Consequência:** alterações estruturais devem ser introduzidas por novas migrations, preservando consistência e segurança.
+
+### 5. Preparação da aplicação para Kubernetes
+**Decisão:** externalizar configurações da aplicação por variáveis de ambiente e separar dados sensíveis dos não sensíveis.
+
+**Por quê:**
+- a aplicação precisa adaptar-se a diferentes ambientes sem alterar o código;
+- valores sensíveis como credenciais e chaves devem permanecer fora do repositório;
+- o Kubernetes funciona melhor quando a configuração é recebida por ConfigMap e Secret;
+- probes e health checks são fundamentais para garantir disponibilidade e integração com o orquestrador.
+
+**Consequência:** a aplicação fica preparada para execução em cluster com configuração dinâmica, sem depender de hardcoded values.
+
+### 6. Manifestos Kubernetes
+**Decisão:** usar manifests declarativos para orquestrar a aplicação no EKS.
+
+**Por quê:**
+- Kubernetes é mais previsível quando a infraestrutura é definida de forma declarativa;
+- os manifests permitem versionar a configuração da aplicação junto ao código;
+- a separação entre namespace, deployment, service, configmap, secret e HPA melhora manutenção e entendimento do ambiente;
+- isso facilita validação, rollback e evolução do deploy.
+
+**Consequência:** a aplicação passa a ter uma implantação padronizada, observável e compatível com automação.
+
+### 7. Componentes principais de Kubernetes e Terraform
+**Decisão:** estruturar a infraestrutura com componentes bem definidos em Kubernetes e Terraform para garantir rastreabilidade, reuso e manutenção.
+
+**Por quê:**
+- o Terraform é responsável por provisionar os recursos de infraestrutura base, como VPC, EKS, ECR, RDS e security groups;
+- o Kubernetes é responsável por orquestrar a aplicação, por meio de namespace, deployment, service, configmap, secret e HPA;
+- essa separação deixa claro o que pertence à camada de provisionamento e o que pertence à camada de execução da aplicação;
+- a divisão facilita manutenção, diagnóstico de problemas e evolução da solução sem misturar responsabilidades.
+
+**Consequência:** a solução fica mais organizada, com responsabilidades bem definidas entre provisionamento de infraestrutura e execução da aplicação.
+
+### 8. Artefatos da pasta Kubernetes
+**Decisão:** organizar os manifests Kubernetes em uma pasta dedicada, com arquivos separados para namespace, configuração, deployment, exposição de serviço, autoscaling e secrets de exemplo.
+
+**Por quê:**
+- cada artefato tem uma responsabilidade específica e deve ser mantido de forma isolada;
+- a estrutura facilita a leitura, a manutenção e a evolução do ambiente de execução;
+- a separação entre configuração e segredo evita misturar dados sensíveis com dados públicos;
+- o uso de um ponto único de composição, via Kustomize, simplifica a aplicação dos manifests no cluster.
+
+**Artefatos principais:**
+- `namespace.yaml`: cria o namespace `oficina`, isolando os recursos da aplicação em um ambiente dedicado.
+- `configmap.yaml`: define variáveis não sensíveis da aplicação, como URL do banco, URL pública, modo de e-mail e configurações de health check.
+- `deployment.yaml`: descreve o Deployment da aplicação, incluindo réplicas, estratégia de rollout, recursos, probes, env vars, security context e imagem do container.
+- `service.yaml`: expõe a aplicação por um Service do tipo `LoadBalancer`; na arquitetura atual, seu endpoint é o backend da integração proxy do API Gateway.
+- `hpa.yaml`: define o Horizontal Pod Autoscaler por utilização de CPU. Memória é monitorada e limita o agendamento, mas não é alvo do HPA implementado. A configuração vigente está na ADR-015.
+- `secret.example.yaml`: serve como modelo de Secret, com valores de exemplo para credenciais sensíveis, sem expor segredos reais.
+- `kustomization.yaml`: agrupa os manifests e permite aplicar o conjunto de recursos de forma organizada, além de parametrizar a imagem usada no deployment.
+
+**Consequência:** os recursos do cluster ficam bem organizados, reutilizáveis e fáceis de aplicar, validar e evoluir.
+
+### 9. Criar secrets no cluster
+**Decisão:** não versionar segredos reais e armazená-los no cluster por meio de Secret.
+
+**Por quê:**
+- credenciais não devem estar em arquivos versionados no repositório;
+- o cluster precisa de um meio seguro para receber valores sensíveis como senha do banco, JWT e SMTP;
+- essa prática reduz riscos de vazamento e melhora a segurança operacional.
+
+**Consequência:** a aplicação continua funcional sem expor informações sensíveis no código-fonte ou nos manifests versionados.
+
+### 10. Aplicar e validar Kubernetes
+**Decisão:** validar a aplicação após o deploy no cluster, incluindo readiness, liveness, serviços e escalabilidade.
+
+**Por quê:**
+- um deploy só é considerado completo quando a aplicação realmente responde corretamente;
+- a validação de probes e serviços evita falhas silenciosas no ambiente;
+- o HPA precisa ser testado para garantir que a aplicação escala de forma previsível sob carga;
+- essa etapa garante confiança na solução antes de considerar o ambiente estável.
+
+**Consequência:** o ambiente passa a ser verificado de forma mais completa, reduzindo risco de falhas em demonstração ou operação.
+
+### 11. Pipelines CI/CD separadas
+**Decisão:** separar a automação de infraestrutura da publicação da aplicação. O registro original usava `infra.yml` e `app-cd.yml` no repositório de origem. Na organização atual, o provisionamento completo é acionado por `provision-homolog.yml` ou `provision-prod.yml` em infra-k8s, e a API mantém `app-cd.yml` em seu próprio repositório. Banco e Lambda possuem workflows próprios acionados por dispatch. Os gatilhos estão documentados nos READMEs técnicos.
+
+**Por quê:**
+- a automação reduz esforço manual e erros humanos;
+- a pipeline garante que mudanças passam por validação antes de chegar ao ambiente;
+- o push para o ECR e o deploy no EKS tornam o processo mais consistente e repetível;
+- commits de aplicação não devem executar `terraform apply` nem alterar a infraestrutura por acidente;
+- a esteira da aplicação pode consumir `terraform output` do state remoto sem recriar VPC, EKS, RDS, ECR ou IAM;
+- esse fluxo é alinhado com a proposta de uma solução moderna e preparada para evolução.
+
+**Consequência:** a infraestrutura passa a evoluir por um fluxo controlado e a aplicação ganha um caminho de entrega mais profissional, com rastreabilidade, menor risco operacional e maior previsibilidade.
+
+### 12. Segurança e boas práticas
+**Decisão:** adotar boas práticas de segurança desde o início do provisionamento e do deploy.
+
+**Por quê:**
+- a aplicação e a infraestrutura devem respeitar princípios de menor privilégio, isolamento e proteção de dados;
+- segredos, permissões e acessos precisam ser controlados para evitar vazamentos ou uso indevido;
+- o uso de usuário não-root, hardening do pod e restrição de acessos melhora a postura de segurança;
+- o ambiente AWS DGCar exige configuração e operação controladas.
+
+**Consequência:** a solução fica mais segura, mesmo em um contexto de estudo ou demonstração.
+
+### 13. Destruir o ambiente e evitar custos
+**Decisão:** remover recursos Kubernetes e a infraestrutura provisionada ao final do uso.
+
+**Por quê:**
+- ambientes em nuvem geram custos contínuos;
+- recursos como Load Balancer, EKS, RDS e ECR podem permanecer ativos mesmo sem uso;
+- a destruição ordenada evita dependências residuais e facilita a limpeza completa do ambiente;
+- essa prática é importante para manter a solução econômica e sustentável.
+
+**Consequência:** o projeto pode ser demonstrado sem gerar custo desnecessário após a fase de validação.
+
+### 14. Limpeza de dependencias Kubernetes no destroy
+**Decisao:** fortalecer o destroy automatizado da esteira de infraestrutura para remover dependencias AWS criadas indiretamente pelo Kubernetes antes do `terraform destroy`.
+
+**Por que:**
+- Services Kubernetes do tipo `LoadBalancer` podem criar Classic Load Balancer, ELBv2, ENIs e security groups na AWS fora do controle direto do Terraform state;
+- a exclusao desses recursos e assincrona e pode continuar em andamento mesmo depois de `kubectl delete service` ou `kubectl delete namespace`;
+- se o Terraform tentar remover subnets, Internet Gateway ou VPC antes dessa limpeza terminar, a AWS pode retornar `DependencyViolation`;
+- a esteira precisa ser resiliente tanto para ambientes criados por CI/CD quanto para ambientes criados manualmente usando o mesmo state remoto.
+
+**Consequencia:** antes do `terraform destroy`, a pipeline consulta o `vpc_id` no state remoto, remove recursos Kubernetes, aguarda Load Balancers e ENIs gerenciadas por `amazon-elb` serem removidos e exclui security groups orfaos com prefixo `k8s-elb-*`. Isso reduz falhas intermitentes no teardown e evita limpeza manual no Console AWS.
+
+Como o destroy remove o namespace Kubernetes `oficina`, tambem sao removidos `ConfigMap` e `Secret` vivos no cluster. Portanto, o deploy da aplicacao nao deve depender de ajustes manuais persistidos no EKS. A esteira `app-cd.yml` deve recriar as configuracoes necessarias a partir de GitHub Secrets e Repository Variables, incluindo credenciais SMTP no `Secret` e configuracoes nao sensiveis de e-mail no `ConfigMap`.
+
+### 15. Evidencia operacional do HPA
+**Decisao:** registrar a decisão de escalabilidade e suas limitações na [ADR-015](ADR-015-hpa-cluster-autoscaling.md), mantendo os procedimentos e as evidências no [guia de validação do HPA em infra-k8s](https://github.com/techdgconsulting/oficina-dgcar-infra-k8s/blob/homolog/docs/VALIDACAO-HPA.md).
+
+**Por que:**
+- o HPA e requisito explicito da fase e precisa de evidencia alem da existencia do manifesto;
+- o comportamento depende do Metrics Server, dos `resources.requests` do Deployment e de carga suficiente para acionar o autoscaling;
+- um roteiro com comandos, saidas esperadas e criterios de aceite torna a validacao reproduzivel pelo avaliador;
+- a documentacao reduz ambiguidade entre configuracao declarativa, estado observado no cluster e resultado do teste de carga.
+
+**Consequencia:** a entrega passa a comprovar o HPA por tres evidencias complementares: manifesto versionado, comandos de verificacao no cluster e demonstracao controlada de scale up/scale down.
+
+### 16. Evolucao De Infraestrutura Para O Tech Challenge 3
+**Decisao:** manter esta ADR como registro da infraestrutura base ja adotada e complementar a evolucao corporativa do Tech Challenge 3 com ADRs e RFCs especificas.
+
+**Por que:**
+- a infraestrutura existente com AWS, Terraform, EKS, ECR, RDS, S3 e GitHub Actions continua sendo a base de evolucao;
+- o Tech Challenge 3 adiciona decisoes arquiteturais sobre API Gateway, Lambda Auth CPF + Senha, observabilidade, logs estruturados e separacao de responsabilidades;
+- separar as decisoes evita reescrever o historico da infraestrutura e preserva rastreabilidade incremental.
+
+**Documentos relacionados:**
+- [`ADR-013`](ADR-013-api-gateway-entrada-oficial.md): API Gateway como entrada oficial.
+- [`ADR-015`](ADR-015-hpa-cluster-autoscaling.md): HPA e estrategia de escalabilidade.
+- [`ADR-016`](ADR-016-logs-estruturados-correlation-id.md): logs estruturados e correlation-id.
+- [`ADR-017`](ADR-017-postgresql-gerenciado.md): PostgreSQL gerenciado.
+- [`RFC-005`](../rfc/RFC-005-separacao-terraform-k8s-banco.md): separacao entre Terraform de Kubernetes e banco.
+
+## Resumo
+A infraestrutura foi definida para ser segura, reprodutível, automatizada e compatível com uma execução real em AWS. As decisões priorizam a separação entre estado, configuração, deploy e segredos, além de reduzir riscos operacionais e custos. Esse conjunto de escolhas torna a aplicação mais adequada para a operação e a validação técnica do ambiente AWS DGCar.

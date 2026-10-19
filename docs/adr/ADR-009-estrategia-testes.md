@@ -2,6 +2,7 @@
 
 **Status:** Aceito  
 **Data:** 2026-05-22  
+**Revisão das dependências:** 2026-10-19
 **Autor:** Diego Gonzalez  
 **Contexto do Projeto:** Sistema de Oficina Mecânica DGCar - Pós-graduação FIAP
 
@@ -13,7 +14,7 @@ O projeto precisa de uma estratégia de testes abrangente que valide as regras d
 
 O desafio é selecionar ferramentas que:
 1. Cubram os três níveis de teste: unitário puro, serviço com mocks e controller com MockMvc
-2. Sejam compatíveis com Java 17, Spring Boot 3.5.16 e Spring Security gerenciado pelo BOM do Spring Boot
+2. Sejam compatíveis com Java 17, Spring Boot 4.0.8 e Spring Security gerenciado pelo BOM do Spring Boot
 3. Permitam isolamento real do banco em CI/CD
 4. Gerem relatório de cobertura automaticamente no build Maven
 
@@ -23,7 +24,9 @@ O desafio é selecionar ferramentas que:
 
 Adoção da **pirâmide de testes** com três camadas distintas, usando o stack a seguir.
 
-### Evidência local atual
+### Evidência local registrada antes desta revisão
+
+Os números abaixo preservam o registro anterior; esta atualização documental não reexecutou a suíte nem recalculou a cobertura.
 
 | Métrica | Valor | Fonte |
 |---|---:|---|
@@ -33,77 +36,28 @@ Adoção da **pirâmide de testes** com três camadas distintas, usando o stack 
 
 ---
 
-## Stack de Testes — Versões Resolvidas
+## Stack de testes — configuração atual
 
-> Todas as versões abaixo são as versões **resolvidas em tempo de build** (`mvn dependency:list`).  
-> Dependências sem versão explícita no `pom.xml` são gerenciadas pelo BOM do `spring-boot-starter-parent 3.5.16`.
+As declarações abaixo refletem o [POM da API](https://github.com/techdgconsulting/oficina-dgcar-api/blob/homolog/pom.xml), com parent Spring Boot **4.0.8**. `Gerenciada` indica versão definida pelo parent/BOM, sem versão explícita na dependência. Os números transitivos anteriores à migração foram removidos para não apresentar uma resolução antiga como atual. Consulte as versões efetivas com `mvn dependency:list` e o gerenciamento completo com `mvn help:effective-pom`.
 
-### Núcleo de Testes
-
-| Artefato | Versão | Papel no projeto |
+| Artefato declarado | Versão | Papel no projeto |
 |---|---|---|
-| `org.junit.jupiter:junit-jupiter` | **5.10.5** | Framework de testes JUnit 5 — aggregator (api + engine) |
-| `org.junit.jupiter:junit-jupiter-api` | **5.10.5** | API de anotações: `@Test`, `@BeforeEach`, `@Nested`, `@DisplayName` |
-| `org.junit.jupiter:junit-jupiter-engine` | **5.10.5** | Motor de execução JUnit 5 |
-| `org.junit.jupiter:junit-jupiter-params` | **5.10.5** | Suporte a `@ParameterizedTest` com `@ValueSource`, `@CsvSource`, `@MethodSource` |
-| `org.junit.platform:junit-platform-commons` | **1.10.5** | Utilitários da plataforma JUnit |
-| `org.junit.platform:junit-platform-engine` | **1.10.5** | SPI da plataforma de execução |
-| `junit:junit` | **4.13.2** | JUnit 4 — apenas transitivo (exigido por algumas dependências internas do Spring) |
-| `org.opentest4j:opentest4j` | **1.3.0** | API de asserções abertas usada pelo JUnit 5 internamente |
+| `org.springframework.boot:spring-boot-starter-webmvc-test` | Gerenciada pelo parent 4.0.8 | Testes MVC com MockMvc e ferramentas de teste |
+| `org.springframework.boot:spring-boot-starter-security-test` | Gerenciada pelo parent 4.0.8 | Testes de autenticação e autorização |
+| `org.springframework.boot:spring-boot-starter-data-jpa-test` | Gerenciada pelo parent 4.0.8 | Testes de persistência com `@DataJpaTest` |
+| `com.h2database:h2` | Gerenciada | Banco em memória do perfil de testes |
+| `org.testcontainers:testcontainers-junit-jupiter` | Gerenciada | Integração Testcontainers com JUnit Jupiter |
+| `org.testcontainers:testcontainers-postgresql` | Gerenciada | Container PostgreSQL para testes com banco real |
+| `org.jacoco:jacoco-maven-plugin` | `0.8.12` | Coleta e relatório de cobertura |
+| `io.qameta.allure:allure-junit5` | `2.27.0` | Integração dos resultados com Allure |
+| `io.qameta.allure:allure-maven` | `2.12.0` | Geração do relatório Allure |
+| `maven-surefire-plugin` | Gerenciada | Execução dos testes pelo Maven |
 
-### Mocking e Asserções
+JUnit Jupiter, Mockito, AssertJ e o suporte Spring são resolvidos pela composição dos starters. O POM usa os starters específicos de Web MVC, Security e Data JPA, em lugar das declarações anteriores de `spring-boot-starter-test` e `spring-security-test`.
 
-| Artefato | Versão | Papel no projeto |
-|---|---|---|
-| `org.mockito:mockito-core` | **5.11.0** | Framework de mocks — `@Mock`, `@Spy`, `when().thenReturn()`, `verify()` |
-| `org.mockito:mockito-junit-jupiter` | **5.11.0** | Integração Mockito ↔ JUnit 5 — habilita `@ExtendWith(MockitoExtension.class)` |
-| `org.assertj:assertj-core` | **3.25.3** | API fluente de asserções: `assertThat(valor).isEqualTo(...)`, `assertThatThrownBy(...)` |
-| `org.hamcrest:hamcrest` | **2.2** | Matchers para asserções no estilo `assertThat(x, is(y))` (usado pelo MockMvc) |
-| `org.hamcrest:hamcrest-core` | **2.2** | Módulo core do Hamcrest (transitivo deprecado, mantido por compatibilidade) |
+Nos testes de controller, `@WebMvcTest` utiliza `org.springframework.boot.webmvc.test.autoconfigure`; nos testes de persistência, `@DataJpaTest` utiliza `org.springframework.boot.data.jpa.test.autoconfigure`, conforme os imports atuais.
 
-### Spring Boot Test
-
-| Artefato | Versão | Papel no projeto |
-|---|---|---|
-| `org.springframework.boot:spring-boot-starter-test` | **3.5.16** | BOM de testes: agrega JUnit 5, Mockito, AssertJ, Hamcrest, MockMvc, JsonPath, etc. |
-| `org.springframework.security:spring-security-test` | **managed** | Suporte a `@WithMockUser`, `SecurityMockMvcRequestPostProcessors.csrf()`, `@WithUserDetails` |
-
-### Banco de Dados para Testes
-
-| Artefato | Versão | Papel no projeto |
-|---|---|---|
-| `com.h2database:h2` | **2.2.224** | Banco em memória (perfil `test`) — substitui PostgreSQL nos testes unitários e de integração leve |
-
-### Testcontainers (integração com banco real)
-
-| Artefato | Versão | Papel no projeto |
-|---|---|---|
-| `org.testcontainers:junit-jupiter` | **managed** | Integração Testcontainers ↔ JUnit 5 (`@Testcontainers`, `@Container`) |
-| `org.testcontainers:postgresql` | **managed** | Container PostgreSQL para testes de integração com banco real |
-| `org.testcontainers:testcontainers` | **managed** | Núcleo do Testcontainers |
-| `org.testcontainers:database-commons` | **managed** | Utilitários comuns para containers de banco de dados |
-| `org.testcontainers:jdbc` | **managed** | Suporte ao protocolo JDBC sobre containers |
-
-> **Nota:** Testcontainers está declarado no `pom.xml` como dependência de teste, mas **não é utilizado nos testes atuais** (os testes usam H2). Está disponível como ponto de extensão para testes de integração com PostgreSQL real em pipelines CI.
-
-### Cobertura de Código
-
-| Artefato | Versão | Papel no projeto |
-|---|---|---|
-| `org.jacoco:jacoco-maven-plugin` | **0.8.12** | Plugin Maven para instrumentação em tempo de execução e geração de relatório HTML/XML |
-
-### Relatório de Testes — Allure
-
-| Artefato | Versão | Papel no projeto |
-|---|---|---|
-| `io.qameta.allure:allure-junit5` | **2.27.0** | Listener JUnit 5 que intercepta cada `@Test` e grava resultado em `target/allure-results/` |
-| `io.qameta.allure:allure-maven` | **2.12.0** | Plugin Maven (`mvn allure:report`) que converte `allure-results/` em HTML interativo |
-
-### Plugin de Execução
-
-| Artefato | Versão | Papel no projeto |
-|---|---|---|
-| `maven-surefire-plugin` | **3.2.5** | Plugin Maven responsável por descobrir e executar os testes JUnit 5 |
+Testcontainers permanece declarado como dependência de teste; os testes atuais usam H2. As versões de produção e as evidências Trivy estão na [ADR-008](ADR-008-stack-tecnologico.md) e na [ADR-012](ADR-012-varreduras-seguranca-owasp-zap-trivy.md).
 
 ---
 
@@ -119,12 +73,12 @@ Adoção da **pirâmide de testes** com três camadas distintas, usando o stack 
 │  CAMADA 2 — Use Case Tests (@ExtendWith(MockitoExtension))      │
 │  Anota: @Mock; eventualmente @InjectMocks e @Captor             │
 │  Simula: repositórios, gateways, clientes HTTP e ports de saída │
-│  Ferramentas: Mockito 5.11.0, AssertJ 3.25.3                   │
+│  Ferramentas: Mockito, AssertJ                                │
 ├─────────────────────────────────────────────────────────────────┤
 │  CAMADA 1 — Domain Tests (JUnit puro, sem Spring)               │
 │  Anota: @Test, @ParameterizedTest, @ValueSource                 │
 │  Valida: entidades, VOs, estados, invariantes e cálculos        │
-│  Ferramentas: JUnit Jupiter 5.10.5, AssertJ 3.25.3             │
+│  Ferramentas: JUnit Jupiter, AssertJ                          │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -139,7 +93,7 @@ Adoção da **pirâmide de testes** com três camadas distintas, usando o stack 
 | `adapters.out.payment.*` | Gateway mock | `@Test` | Nenhum |
 | `adapters.out.security.*` / `infrastructure.security.*` | Segurança/JWT | Unitário e slice web | Nenhum |
 | `infrastructure.client.*` | Cliente externo (ViaCEP) | Unitário com mock HTTP | Nenhum |
-| `coverage.*` | Cobertura de cenários residuais | JUnit 5 | Conforme classe |
+| `coverage.*` | Cobertura de cenários residuais | JUnit Jupiter | Conforme classe |
 
 ---
 

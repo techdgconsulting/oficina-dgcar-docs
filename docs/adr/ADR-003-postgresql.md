@@ -1,7 +1,7 @@
 # ADR-003: PostgreSQL como Banco de Dados
 
-**Status:** Aceito  
-**Data:** 2026-05-05 
+**Status:** Aceito
+**Data:** 2026-10-19
 **Autor:** Diego Gonzalez
 **Contexto do Projeto:** Sistema de Oficina Mecânica DGCar - Pós-graduação FIAP
 
@@ -15,7 +15,7 @@ Adotar **PostgreSQL 16** como banco de dados relacional principal do projeto.
 
 O ambiente local/de demonstração usa PostgreSQL via Docker Compose (`postgres:16-alpine`). Nesse modo, o banco roda no container `oficina-db`, expõe a porta externa `5434` e atende a aplicação internamente em `db:5432`.
 
-O ambiente AWS usa **Amazon RDS PostgreSQL**, provisionado por Terraform e acessado pela aplicação no Amazon EKS por meio da URL JDBC publicada nos outputs da infraestrutura. O RDS permanece em subnets privadas e recebe tráfego somente do security group associado ao EKS.
+O ambiente AWS usa **Amazon RDS PostgreSQL**, provisionado por Terraform e acessado pela aplicação no Amazon EKS por meio da URL JDBC publicada nos outputs da infraestrutura. O RDS permanece em subnets privadas e recebe tráfego dos security groups autorizados, incluindo EKS e Lambda Auth conforme a configuração do ambiente. Esta ADR registra a escolha do banco; a adoção do serviço gerenciado está detalhada na [ADR-017](ADR-017-postgresql-gerenciado.md), e os fundamentos de infraestrutura na [ADR-019](ADR-019-infraestrutura-aws-terraform-kubernetes.md).
 
 No perfil padrão local, a aplicação aponta para PostgreSQL em `localhost:5432` com `ddl-auto=validate` e Flyway habilitado.
 
