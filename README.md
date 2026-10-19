@@ -25,6 +25,7 @@ Este repositório reúne a documentação do projeto. Use este README para local
 | [docs/banco](docs/banco/) | Modelo relacional, diagrama entidade-relacionamento, dicionário de dados, índices e documentação do banco gerenciado. |
 | [docs/observabilidade](docs/observabilidade/) | Documentação do New Relic, logs estruturados, correlação de requisições, métricas de negócio, dashboards e alertas. |
 | [docs/operacao](docs/operacao/) | Índice de links para os guias técnicos de operação, validação e deploy dos componentes. |
+| [docs/testes](docs/testes/README.md) | Resultados executados, cenários, quantidades, cobertura JaCoCo/Jest e acesso aos relatórios da CI. |
 
 O [CHANGELOG.md](CHANGELOG.md) registra a evolução da documentação.
 
@@ -124,6 +125,15 @@ Diretório: [docs/operacao/](docs/operacao/).
 |---|---|
 | [README.md](docs/operacao/README.md) | Apresentação e índice da área |
 
+### Testes e relatórios
+
+Diretório: [docs/testes/](docs/testes/).
+
+| Arquivo | O que encontrar |
+|---|---|
+| [README.md](docs/testes/README.md) | Resultados por componente, cobertura JaCoCo e Jest, evidências da CI e acesso aos relatórios. |
+| [cenarios-api.md](docs/testes/cenarios-api.md) | Inventário dos 402 casos executados na API, organizado pelas 56 suítes Surefire. |
+
 ### Arquivos da raiz
 
 | Arquivo | O que encontrar |
@@ -138,12 +148,13 @@ As justificativas da escolha do PostgreSQL estão na [ADR-003](docs/adr/ADR-003-
 
 | O que procurar | Onde encontrar |
 |---|---|
+| Cenários executados, quantidades e cobertura | [Testes e resultados](docs/testes/README.md) e [inventário de cenários da API](docs/testes/cenarios-api.md) |
 | Execução local, configuração, testes e acesso ao Swagger/OpenAPI | [README da API](https://github.com/techdgconsulting/oficina-dgcar-api#readme) |
 | Collection e exemplos de requisições | [Diretório postman/ da API](https://github.com/techdgconsulting/oficina-dgcar-api/tree/homolog/postman) |
 | Collection Postman do Tech Challenge — Fase 3 | [Arquivo JSON para importar no Postman](https://github.com/techdgconsulting/oficina-dgcar-api/blob/homolog/postman/Oficina-DGCar-Tech-Challenge-Fase-3.postman_collection.json) |
 | Relatórios de segurança Trivy | [Diretório ReportTRIVY/](https://github.com/techdgconsulting/oficina-dgcar-api/tree/homolog/docs/ReportTRIVY) e [relatório da imagem em JSON](https://github.com/techdgconsulting/oficina-dgcar-api/blob/homolog/docs/ReportTRIVY/trivy-image-report.json) |
 | Versões das bibliotecas e correções verificadas com Trivy | [Stack e versões atuais — ADR-008](docs/adr/ADR-008-stack-tecnologico.md) e [atualizações e evidências de segurança — ADR-012](docs/adr/ADR-012-varreduras-seguranca-owasp-zap-trivy.md) |
-| Relatórios de segurança OWASP ZAP | [Diretório ReportOWASP/](https://github.com/techdgconsulting/oficina-dgcar-api/tree/homolog/docs/ReportOWASP) e [relatório da Fase 2 em HTML](https://github.com/techdgconsulting/oficina-dgcar-api/blob/homolog/docs/ReportOWASP/FASE2-2026-08-13-ZAP-Report-.html) |
+| Relatórios de segurança OWASP ZAP | [Diretório ReportOWASP/](https://github.com/techdgconsulting/oficina-dgcar-api/tree/homolog/docs/ReportOWASP) e [relatório em HTML](https://github.com/techdgconsulting/oficina-dgcar-api/blob/homolog/docs/ReportOWASP/2026-10-19-ZAP-Report-.html) |
 | Configuração, testes e deploy da autenticação externa | [README da Lambda](https://github.com/techdgconsulting/oficina-dgcar-auth-lambda#readme) |
 | Provisionamento e operação do PostgreSQL | [README de infra-db](https://github.com/techdgconsulting/oficina-dgcar-infra-db#readme) |
 | Provisionamento AWS, Kubernetes e operação dos ambientes | [README de infra-k8s](https://github.com/techdgconsulting/oficina-dgcar-infra-k8s#readme) |
