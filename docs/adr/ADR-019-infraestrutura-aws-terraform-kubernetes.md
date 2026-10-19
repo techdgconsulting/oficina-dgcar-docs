@@ -195,7 +195,7 @@ A aplicação foi preparada para evoluir de um ambiente local para uma execuçã
 Como o destroy remove o namespace Kubernetes `oficina`, tambem sao removidos `ConfigMap` e `Secret` vivos no cluster. Portanto, o deploy da aplicacao nao deve depender de ajustes manuais persistidos no EKS. A esteira `app-cd.yml` deve recriar as configuracoes necessarias a partir de GitHub Secrets e Repository Variables, incluindo credenciais SMTP no `Secret` e configuracoes nao sensiveis de e-mail no `ConfigMap`.
 
 ### 15. Evidencia operacional do HPA
-**Decisao:** registrar a decisão de escalabilidade e suas limitações na [ADR-015](ADR-015-hpa-cluster-autoscaling.md), mantendo os procedimentos e as evidências no [guia de validação do HPA em infra-k8s](https://github.com/techdgconsulting/oficina-dgcar-infra-k8s/blob/homolog/docs/VALIDACAO-HPA.md).
+**Decisao:** registrar a decisão de escalabilidade e suas limitações na [ADR-015](ADR-015-hpa-cluster-autoscaling.md), mantendo os procedimentos e as evidências no [guia de validação do HPA em infra-k8s](https://github.com/techdgconsulting/oficina-dgcar-infra-k8s/blob/homolog/README.md#hpa-e-capacidade).
 
 **Por que:**
 - o HPA e requisito explicito da fase e precisa de evidencia alem da existencia do manifesto;
