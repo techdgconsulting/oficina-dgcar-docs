@@ -79,6 +79,7 @@ Diretório: [docs/adr/](docs/adr/).
 | [ADR-017-postgresql-gerenciado.md](docs/adr/ADR-017-postgresql-gerenciado.md) | ADR-017: PostgreSQL Gerenciado Como Banco Corporativo |
 | [ADR-018-validacao-jwt-cliente-externo.md](docs/adr/ADR-018-validacao-jwt-cliente-externo.md) | ADR-018: Validacao Do JWT Externo De Cliente |
 | [ADR-019-infraestrutura-aws-terraform-kubernetes.md](docs/adr/ADR-019-infraestrutura-aws-terraform-kubernetes.md) | ADR-019: Infraestrutura AWS com Terraform e Kubernetes |
+| [ADR-020-promocao-e-deploy-automatico.md](docs/adr/ADR-020-promocao-e-deploy-automatico.md) | Promoção por PR, deploy automático, fila por ambiente e preservação do destroy manual |
 
 ### Propostas técnicas — RFCs
 

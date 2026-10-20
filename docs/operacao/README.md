@@ -11,3 +11,5 @@ Este índice aponta para os procedimentos mantidos nos repositórios responsáve
 | Execução, testes e deploy da API | [README da API](https://github.com/techdgconsulting/oficina-dgcar-api#readme) | [ADR-008 — Stack](../adr/ADR-008-stack-tecnologico.md) |
 
 Os guias de infraestrutura contêm os critérios de validação, os resultados registrados e os links das execuções. Consulte também a [documentação de observabilidade](../observabilidade/) para logs, métricas, dashboards e alertas.
+
+A promoção por PR e os deploys automáticos seguem a [ADR-020](../adr/ADR-020-promocao-e-deploy-automatico.md). Os workflows operacionais versionados pertencem a infra-k8s.

@@ -40,7 +40,9 @@ else (nao)
 endif
 
 partition "Deploy Homolog" {
-  :Acionar pipeline do repositorio alterado;
+  :Merge dispara a validacao do componente;
+  :Solicitar atualizacao a fila central de homolog;
+  :Verificar SHA, ambiente e execucao pai;
   :Carregar secrets do environment homolog;
   :Build e publicacao de artefato;
   if (Repositorio?) then (API)
@@ -52,7 +54,8 @@ partition "Deploy Homolog" {
     :Empacotar Lambda;
     :Publicar funcao Auth CPF + Senha em homolog;
   elseif (Infra DB)
-    :Terraform plan/apply do RDS homolog;
+    :Validar e salvar plano do RDS;
+    :Bloquear remocao ou substituicao antes do apply;
   else (Infra K8s)
     :Terraform plan/apply de EKS, ECR, Gateway e manifests homolog;
   endif
@@ -72,13 +75,17 @@ else (nao)
 endif
 
 partition "GitHub Environment prod" {
-  :Solicitar aprovacao manual de producao;
-  :Aguardar aprovadores autorizados;
+  if (Environment exige aprovacao?) then (sim)
+    :Aguardar aprovadores autorizados;
+  else (nao)
+    :Prosseguir automaticamente;
+  endif
   :Carregar secrets e variaveis de prod;
 }
 
 partition "Deploy Producao" {
-  :Executar pipeline com parametros de prod;
+  :Merge dispara pedido a fila central de prod;
+  :Executar componente com parametros e SHA de prod;
   :Publicar artefato ou aplicar Terraform em prod;
   :Executar validacoes pos-deploy;
   :Registrar evidencias de execucao no GitHub Actions;
