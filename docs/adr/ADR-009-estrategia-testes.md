@@ -1,8 +1,6 @@
 # ADR-009: Estratégia de Testes — Frameworks e Ferramentas
 
 **Status:** Aceito  
-**Data:** 2026-05-22  
-**Revisão das dependências:** 2026-10-19
 **Autor:** Diego Gonzalez  
 **Contexto do Projeto:** Sistema de Oficina Mecânica DGCar - Pós-graduação FIAP
 
@@ -24,15 +22,11 @@ O desafio é selecionar ferramentas que:
 
 Adoção da **pirâmide de testes** com três camadas distintas, usando o stack a seguir.
 
-### Evidência local registrada antes desta revisão
+### Resultados e relatórios
 
-Os números abaixo preservam o registro anterior; esta atualização documental não reexecutou a suíte nem recalculou a cobertura.
+As quantidades, os cenários executados, a cobertura JaCoCo e os links para os artefatos ficam no [registro de testes e resultados](../testes/README.md), acompanhado do [inventário de cenários da API](../testes/cenarios-api.md). Essa separação mantém a decisão de estratégia nesta ADR e a evidência de cada execução em uma página própria.
 
-| Métrica | Valor | Fonte |
-|---|---:|---|
-| Classes de teste | 47 | `src/test/**/*.java` |
-| Testes executados | 361 | artefatos locais em `target/surefire-reports` |
-| Cobertura de instruções | 96,24% | `target/site/jacoco/jacoco.csv` |
+Esta revisão substitui o registro antigo de 361 testes/47 classes e 96,24% de instruções pelos relatórios atuais: 402 casos em 56 suítes Surefire, com 95,73% de instruções na CI da API. Os valores anteriores são históricos e não descrevem a revisão atual.
 
 ---
 
@@ -57,7 +51,7 @@ JUnit Jupiter, Mockito, AssertJ e o suporte Spring são resolvidos pela composi�
 
 Nos testes de controller, `@WebMvcTest` utiliza `org.springframework.boot.webmvc.test.autoconfigure`; nos testes de persistência, `@DataJpaTest` utiliza `org.springframework.boot.data.jpa.test.autoconfigure`, conforme os imports atuais.
 
-Testcontainers permanece declarado como dependência de teste; os testes atuais usam H2. As versões de produção e as evidências Trivy estão na [ADR-008](ADR-008-stack-tecnologico.md) e na [ADR-012](ADR-012-varreduras-seguranca-owasp-zap-trivy.md).
+Os testes combinam isolamento com mocks, H2 nos slices configurados e PostgreSQL 16 via Testcontainers no `BusinessDashboardMigrationTest`. Esse teste valida migrations e pode ser ignorado se Docker estiver indisponível; na execução documentada houve zero testes ignorados. As versões de produção e as evidências Trivy estão na [ADR-008](ADR-008-stack-tecnologico.md) e na [ADR-012](ADR-012-varreduras-seguranca-owasp-zap-trivy.md).
 
 ---
 
@@ -89,7 +83,7 @@ Testcontainers permanece declarado como dependência de teste; os testes atuais 
 | `domain.model.*` / `domain.valueobject.*` | Unitário puro | `@Test` / `@ParameterizedTest` | Nenhum |
 | `application.usecase.*` | Use case com mocks | `@ExtendWith(MockitoExtension.class)` | Nenhum |
 | `adapters.in.web.controller.*` | Controller (web slice) | `@WebMvcTest` + `MockMvc` | Nenhum |
-| `adapters.out.persistence.*` | Adapter de persistência | Testes focados por adapter | H2 quando necessário |
+| `adapters.out.persistence.*` | Persistência e migrations | `@DataJpaTest`, mocks e `@Testcontainers`, conforme a classe | H2 e PostgreSQL 16 |
 | `adapters.out.payment.*` | Gateway mock | `@Test` | Nenhum |
 | `adapters.out.security.*` / `infrastructure.security.*` | Segurança/JWT | Unitário e slice web | Nenhum |
 | `infrastructure.client.*` | Cliente externo (ViaCEP) | Unitário com mock HTTP | Nenhum |
@@ -137,7 +131,7 @@ spring:
     enabled: false
 ```
 
-No estado atual, os testes automatizados priorizam velocidade e isolamento: o schema H2 é recriado pelo Hibernate e o Flyway permanece desabilitado no perfil `test`. As migrations Flyway são validadas no ambiente PostgreSQL principal/Docker, conforme ADR-005.
+O perfil `test` usa H2 com schema recriado e Flyway desabilitado. Isso não se aplica indiscriminadamente a toda a suíte: `BusinessDashboardMigrationTest` inicia PostgreSQL 16 com Testcontainers e executa Flyway explicitamente para validar a evolução de um banco existente. Essa configuração exige Docker para executar o cenário, conforme o [registro de resultados](../testes/README.md).
 
 ---
 
@@ -224,7 +218,7 @@ O endpoint `POST /api/ordens-servico/completa` possui cobertura específica em t
 </plugin>
 ```
 
-Relatório gerado em: `target/site/jacoco/index.html`
+Relatório gerado em: `target/site/jacoco/index.html`. O POM também executa `jacoco:check`, exigindo pelo menos 95% de cobertura de instruções no bundle. O resultado por métrica e o acesso ao artefato da CI estão no [registro de testes](../testes/README.md).
 
 ---
 
@@ -232,11 +226,11 @@ Relatório gerado em: `target/site/jacoco/index.html`
 
 | Opção | Motivo da escolha / rejeição |
 |---|---|
-| **Testcontainers com PostgreSQL real** | Disponível no `pom.xml`; preferiu-se H2 nos testes atuais por velocidade. Extensão natural para CI/CD com banco real |
+| **Testcontainers com PostgreSQL real** | Adotado para validar migrations com o dialeto real; H2 permanece nos testes de persistência que priorizam isolamento e velocidade. |
 | **Arquillian** | Overengineering para o escopo do projeto |
 | **REST Assured** | `MockMvc` (embutido no Spring) cobre todos os cenários necessários sem dependência adicional |
 | **WireMock (mocks HTTP externos)** | Mockito + `@MockitoBean` suficientes para mockar ports e adapters como `TokenProviderPort`, `ViaCepClient` e `MockPagamentoGatewayAdapter` |
-| **Banco PostgreSQL embutido (pg-embedded)** | H2 em memória oferece startup simples para a suíte atual; PostgreSQL real fica concentrado no ambiente Docker e em futura evolução com Testcontainers |
+| **Banco PostgreSQL embutido (pg-embedded)** | H2 atende aos slices configurados; PostgreSQL real é iniciado com Testcontainers no teste de migrations, sem depender de uma instalação compartilhada |
 | **Allure vs. Surefire HTML puro** | Surefire gera relatório básico; Allure oferece agrupamento por Epic/Feature/Story, gráficos de tendência, histórico de execuções e drill-down por teste — justifica a dependência extra |
 
 ---
@@ -244,9 +238,9 @@ Relatório gerado em: `target/site/jacoco/index.html`
 ## Consequências
 
 ### Positivas
-- **Velocidade:** testes de domínio e use cases em < 100 ms por classe (sem I/O)
+- **Isolamento:** testes de domínio e use cases evitam dependências reais de infraestrutura quando usam mocks
 - **Isolamento:** cada camada testada sem dependências das camadas superiores
-- **Cobertura alta:** 96,24% de instruções na evidência local atual — detecta regressões com confiança
+- **Cobertura verificável:** limite mínimo de 95% de instruções no bundle; resultados atuais e demais métricas estão no registro de testes
 - **RBAC validado:** testes de negação (403) em todas as regras de perfil dos controllers
 - **Relatório de cobertura:** JaCoCo gera HTML a cada `mvn test jacoco:report`
 - **Relatório de testes:** Allure gera dashboard interativo via `allure-report.ps1` (Windows) com agrupamento por Epic/Feature/Story, histórico e tendências
@@ -254,4 +248,4 @@ Relatório gerado em: `target/site/jacoco/index.html`
 ### Negativas
 - H2 em memória não cobre 100% das features específicas do PostgreSQL (ex: dialeto, constraints específicas, funções nativas)
 - Testes de controller (`@WebMvcTest`) exigem `@Import(SecurityConfig.class)` manual — acoplamento frágil que pode ser esquecido ao criar novos tests
-- Testcontainers declarados no `pom.xml` mas não utilizados nos testes atuais — pode gerar confusão sobre qual banco usar em testes de integração futuros
+- O cenário PostgreSQL com Testcontainers depende de Docker e pode ser ignorado sem ele; a revisão dos resultados deve conferir também os testes ignorados

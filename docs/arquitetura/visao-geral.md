@@ -25,7 +25,7 @@ As chamadas de negócio seguem pelo proxy do Gateway até o Service da API no EK
 
 Terraform mantém os recursos de banco e da plataforma Kubernetes em repositórios e estados separados. Os workflows de provisionamento completo são acionados por dispatch e coordenam rede, banco, Lambda, API e integrações. O deploy da API possui gatilhos próprios, descritos em seu README.
 
-O HPA usa CPU fornecida pelo Metrics Server, com mínimo de uma e máximo de três réplicas. O ensaio registrado em homolog comprova uma réplica, duas Ready sob carga e retorno a uma na mesma EC2. O máximo configurado não equivale à capacidade demonstrada. Os detalhes estão na [ADR-015](../adr/ADR-015-hpa-cluster-autoscaling.md) e no [roteiro operacional](https://github.com/techdgconsulting/oficina-dgcar-infra-k8s/blob/homolog/docs/VALIDACAO-HPA.md).
+O HPA usa CPU fornecida pelo Metrics Server, com mínimo de uma e máximo de três réplicas. O ensaio registrado em homolog comprova uma réplica, duas Ready sob carga e retorno a uma na mesma EC2. O máximo configurado não equivale à capacidade demonstrada. Os detalhes estão na [ADR-015](../adr/ADR-015-hpa-cluster-autoscaling.md) e no [roteiro operacional](https://github.com/techdgconsulting/oficina-dgcar-infra-k8s/blob/homolog/README.md#hpa-e-capacidade).
 
 ## Observabilidade
 

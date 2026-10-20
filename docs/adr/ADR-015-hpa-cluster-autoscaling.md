@@ -53,7 +53,7 @@ O Metrics Server é instalado pelo Helm, com uma réplica e resolução de métr
 
 A [execução 38794638490 em homolog](https://github.com/techdgconsulting/oficina-dgcar-infra-k8s/actions/runs/38794638490), de 15/10/2026, registrou **1 → 2 pods Ready → 1 na mesma EC2**, com restauração da configuração original e verificação New Relic.
 
-O máximo configurado de três réplicas não equivale à capacidade demonstrada: o ensaio comprovou duas réplicas prontas em homolog. Não comprovou três réplicas simultâneas, capacidade equivalente em prod ou disponibilidade diante da perda do único nó. Os procedimentos, critérios de aprovação e artefatos de evidência ficam no [guia de validação do HPA](https://github.com/techdgconsulting/oficina-dgcar-infra-k8s/blob/homolog/docs/VALIDACAO-HPA.md).
+O máximo configurado de três réplicas não equivale à capacidade demonstrada: o ensaio comprovou duas réplicas prontas em homolog. Não comprovou três réplicas simultâneas, capacidade equivalente em prod ou disponibilidade diante da perda do único nó. Os procedimentos, critérios de aprovação e artefatos de evidência ficam no [guia de validação do HPA](https://github.com/techdgconsulting/oficina-dgcar-infra-k8s/blob/homolog/README.md#hpa-e-capacidade).
 
 ## Consequências
 
@@ -65,7 +65,7 @@ O registro original de 27/09/2026 descrevia mínimo de duas réplicas, alvo de m
 
 ## Referências
 
-- [operação e validação do HPA](https://github.com/techdgconsulting/oficina-dgcar-infra-k8s/blob/homolog/docs/VALIDACAO-HPA.md).
+- [operação e validação do HPA](https://github.com/techdgconsulting/oficina-dgcar-infra-k8s/blob/homolog/README.md#hpa-e-capacidade).
 - [RFC-004 — Observabilidade](../rfc/RFC-004-observabilidade-new-relic.md).
 - Infraestrutura: `k8s/hpa.yaml`, `k8s/deployment.yaml`, `terraform/hpa.tf`, `terraform/node-pod-capacity.py` e `scripts/hpa/`.
 - API: `.github/workflows/app-cd.yml`.
