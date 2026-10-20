@@ -21,7 +21,7 @@ O banco gerenciado foi definido como Amazon RDS PostgreSQL, provisionado por Ter
 
 - Homologacao usa retencao reduzida por restricoes de laboratorio.
 - Producao usa retencao automatica parametrizada.
-- Remocoes controladas preservam snapshot final quando habilitado.
+- O destroy confirmado de homolog e prod remove o banco sem snapshot final e limpa snapshots manuais e backups retidos da instância do ambiente, conforme a [ADR-017](../adr/ADR-017-postgresql-gerenciado.md).
 
 ## Conectividade
 
