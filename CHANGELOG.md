@@ -2,13 +2,19 @@
 
 Historico resumido da evolucao do projeto Oficina Mecanica DGCar.
 
-## Revisão de dependências e documentação — 19/10/2026
+## Resultados de testes
+
+- Registro das execuções da API (402 testes), Lambda (18 testes), infra-k8s (7 + 8 testes de proteção) e validação Terraform do banco.
+- Inventário de cenários da API, contadores JaCoCo da CI, cobertura Jest e links para relatórios e artefatos.
+- Correção das ADRs de stack e testes sobre o uso efetivo de PostgreSQL com Testcontainers.
+
+## Revisão de dependências e documentação
 
 - Consolidação da documentação operacional: `docs/operacao/README.md` mantém a navegação; os procedimentos e as evidências ficam nos guias de infra-k8s, e as decisões de escalabilidade e proteção do banco permanecem nas ADRs.
 - Sincronização da ADR-008 e do README da API com o POM local: Spring Boot 4.0.8, Jackson BOM 3.1.7, Jackson 2 BOM 2.22.3, Tomcat 11.0.27 e SpringDoc 3.0.3.
 - Atualização da ADR-009 com os starters de testes e artefatos Testcontainers atuais; remoção de números transitivos antigos apresentados como resolução atual.
-- Registro na ADR-012 do escopo dos relatórios Trivy de 17/10/2026: zero achados HIGH/CRITICAL nas análises locais de dependências e imagem.
-- Preservação das datas originais das decisões e dos registros históricos; esta revisão documental não reexecuta testes, scans ou deploy.
+- Registro na ADR-012 do escopo dos relatórios Trivy: zero achados HIGH/CRITICAL nas análises locais de dependências e imagem.
+- Preservação dos registros históricos; esta revisão documental não reexecuta testes, scans ou deploy.
 
 ## Base Historica
 

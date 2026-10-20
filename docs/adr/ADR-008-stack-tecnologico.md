@@ -1,8 +1,6 @@
 # ADR-008: Stack Tecnológico do Projeto
 
 **Status:** Aceito  
-**Data:** 2026-05-22  
-**Revisão das dependências:** 2026-10-19
 **Autor:** Diego Gonzalez  
 **Contexto do Projeto:** Sistema de Oficina Mecânica DGCar - Pós-graduação FIAP
 
@@ -131,14 +129,14 @@ O projeto exige uma plataforma backend consolidada, com suporte a DDD tático, p
 
 ### 8. Testes de Integração com PostgreSQL: Testcontainers
 
-**Decisão:** manter `org.testcontainers:testcontainers-junit-jupiter` + `org.testcontainers:testcontainers-postgresql` declarados como dependências de teste para evolução futura da suíte com PostgreSQL real em container Docker.
+**Decisão:** manter `org.testcontainers:testcontainers-junit-jupiter` + `org.testcontainers:testcontainers-postgresql` como dependências de teste para validar migrations com PostgreSQL real em container Docker.
 
 **Justificativas:**
-- Elimina dependência de banco de dados externo quando testes de integração com PostgreSQL forem adicionados
+- Inicia um PostgreSQL isolado para o teste de migrations, sem depender de banco compartilhado
 - PostgreSQL real no teste aumenta fidelidade com o ambiente principal em comparação ao H2
 - Integração com JUnit Jupiter via `@Testcontainers` + `@Container`
 
-**Estado atual:** a suíte automatizada atual não usa Testcontainers; os testes rodam com H2 em memória no perfil `test`. O uso de Testcontainers permanece como extensão planejada para cenários de CI/CD que precisem validar migrations, constraints e dialeto PostgreSQL.
+**Estado atual:** `BusinessDashboardMigrationTest` usa PostgreSQL 16 via Testcontainers e executa migrations Flyway. Os slices de persistência configurados usam H2. O cenário Testcontainers pode ser ignorado sem Docker; os resultados de execução e a contagem de testes ignorados estão no [registro de testes](../testes/README.md).
 
 | Alternativa | Motivo da rejeição |
 |-------------|-------------------|
@@ -216,7 +214,7 @@ O projeto exige uma plataforma backend consolidada, com suporte a DDD tático, p
 
 ## Revisão de dependências após análise Trivy
 
-A revisão de 19/10/2026 reflete a configuração local do [POM da API](https://github.com/techdgconsulting/oficina-dgcar-api/blob/homolog/pom.xml). A migração substitui a configuração anterior com Spring Boot 3.5.16 e SpringDoc 2.8.17. A data original da ADR registra a decisão inicial.
+Esta revisão reflete a configuração local do [POM da API](https://github.com/techdgconsulting/oficina-dgcar-api/blob/homolog/pom.xml). A migração substitui a configuração anterior com Spring Boot 3.5.16 e SpringDoc 2.8.17.
 
 | Componente | Configuração atual no POM |
 |---|---|
@@ -250,7 +248,7 @@ O parent e os overrides do POM determinam as versões gerenciadas. O escopo e as
 | Documentação API | SpringDoc OpenAPI | 3.0.3 |
 | Cobertura | JaCoCo | 0.8.12 |
 | Relatórios de Teste | Allure | 2.27.0 |
-| Testes Integração | Testcontainers | Declarado para evolução futura |
+| Testes Integração | Testcontainers | PostgreSQL 16 no teste de migrations |
 | E-mail | Spring Mail / SMTP | (managed) |
 | Containerização | Docker / Docker Compose | (ADR-006) |
 | Infraestrutura como Código | Terraform + AWS Provider | Terraform >= 1.6.0 / AWS Provider ~> 5.0 |
