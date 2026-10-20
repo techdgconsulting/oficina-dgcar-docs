@@ -1,0 +1,33 @@
+name: Validate documentation
+
+on:
+  pull_request:
+    branches: [homolog, main]
+  push:
+    branches: [homolog, main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Validate whitespace
+        run: git diff --check HEAD^ HEAD
+      - name: Require promotion from homolog history
+        if: github.event_name == 'pull_request' && github.base_ref == 'main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          STATUS="$(gh api "repos/$GITHUB_REPOSITORY/compare/homolog...$HEAD_SHA" --jq '.status')"
+          case "$STATUS" in
+            ahead|identical) echo "Histórico de homolog preservado para promoção." ;;
+            *) echo "::error::Atualize a PR com homolog antes de promover para main."; exit 1 ;;
+          esac
