@@ -136,4 +136,21 @@ A CI também verifica formatação, inicialização, validação e plano Terrafo
 | Trivy | [Relatórios Maven e imagem](https://github.com/techdgconsulting/oficina-dgcar-api/tree/homolog/docs/ReportTRIVY) | Zero achados HIGH/CRITICAL no filtro usado; não é um resultado para todas as severidades. |
 | OWASP ZAP | [Relatório HTML do OWASP ZAP](https://github.com/techdgconsulting/oficina-dgcar-api/blob/homolog/docs/ReportOWASP/2026-10-19-ZAP-Report-.html) | Análise do ambiente local; o relatório deve ser interpretado pelo alvo, autenticação e regras da execução. |
 
-Os relatórios de segurança complementam os testes automatizados; não medem cobertura de código. Esta revisão consolida evidências existentes e não executa novamente testes funcionais, carga, scans ou deploy.
+Os relatórios de segurança complementam os testes automatizados; não medem cobertura de código. As evidências de segurança e carga correspondem às execuções referenciadas. Os controles da esteira são verificados separadamente e não alteram as métricas JaCoCo ou Jest da aplicação.
+
+## Controles da esteira e deploy automático
+
+A suíte de [controles de deploy](https://github.com/techdgconsulting/oficina-dgcar-infra-k8s/blob/homolog/scripts/ci/test_deployment.py) contém **19 cenários**, executados na CI de API, Lambda, banco e plataforma contra o guard distribuído em cada componente. Os mesmos cenários não representam 76 comportamentos distintos.
+
+Os casos verificam: compatibilidade entre branch e ambiente; rejeição de SHA inválido ou externo ao histórico protegido; autorização do coordenador, componente e commit; rejeição de execução pai encerrada ou de outro ambiente; encaminhamento da atualização isolada; bloqueio de planos com remoção, substituição, erro ou execução incompleta; e exigência de acionamento manual do destroy. Esses testes usam respostas simuladas do GitHub e planos Terraform de teste, sem destruir recursos.
+
+A integração em homolog foi verificada pelas execuções reais:
+
+| Componente | Coordenador | Worker e resultado |
+|---|---|---|
+| Plataforma | [Atualização automática da plataforma](https://github.com/techdgconsulting/oficina-dgcar-infra-k8s/actions/runs/39445707331) | CI, validação do plano salvo e apply concluídos. Provisionamento completo não executado. |
+| Banco | [Pedido de atualização do banco](https://github.com/techdgconsulting/oficina-dgcar-infra-k8s/actions/runs/39445796589) | [Worker do banco](https://github.com/techdgconsulting/oficina-dgcar-infra-db/actions/runs/39445992889) concluído após autorização e validação do plano. |
+| Lambda | [Pedido de atualização da Lambda](https://github.com/techdgconsulting/oficina-dgcar-infra-k8s/actions/runs/39445859723) | [Worker da Lambda](https://github.com/techdgconsulting/oficina-dgcar-auth-lambda/actions/runs/39446260067) concluído com testes, pacote e atualização da função. |
+| API | [Pedido de atualização da API](https://github.com/techdgconsulting/oficina-dgcar-infra-k8s/actions/runs/39445985010) | [Worker da API](https://github.com/techdgconsulting/oficina-dgcar-api/actions/runs/39446600845) concluído com testes, imagem ECR e rollout no EKS. Readiness pelo Gateway respondeu HTTP 200 e status UP. |
+
+Os workers executaram o SHA encaminhado pelo coordenador e não geraram novos pedidos de deploy. A [PR apenas documental de infra-k8s](https://github.com/techdgconsulting/oficina-dgcar-infra-k8s/pull/62) valida o filtro que evita apply por alteração de README. O destroy foi revisado pelos controles e pela configuração, sem execução real. Esses resultados são de homolog e não comprovam implantação ou funcionamento de prod. A decisão está na [ADR-020](../adr/ADR-020-promocao-e-deploy-automatico.md).
