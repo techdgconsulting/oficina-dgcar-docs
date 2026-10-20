@@ -14,7 +14,7 @@ API, Lambda e banco encaminham automaticamente as mudanças relevantes ao coorde
 
 A fila por ambiente pertence a infra-k8s e é compartilhada por deploys, provisionamento completo, destroy e manutenção. Os workers executam o SHA solicitado e verificam o ambiente, o componente e a execução pai antes de acessar a AWS. Uma execução delegada não gera outro pedido de deploy. A fila comporta até 100 pedidos pendentes, conforme o GitHub Actions, e não garante ordem cronológica de commits. Cada execução registra seu SHA; reexecuções devem usar a revisão desejada da branch do ambiente.
 
-O provisionamento completo permanece manual, na ordem rede/plataforma → banco → Lambda → integrações → API. Atualizações de componentes não acionam esse fluxo completo. O destroy permanece manual, com confirmação explícita e os procedimentos existentes de proteção do banco, snapshot final e liberação de dependências.
+O provisionamento completo permanece manual, na ordem rede/plataforma → banco → Lambda → integrações → API. Atualizações de componentes não acionam esse fluxo completo. O destroy permanece manual, com confirmação explícita, preparação da proteção do banco e liberação de dependências. Em homolog e prod, remove os recursos sem gerar snapshot final e limpa snapshots manuais e backups retidos da instância do ambiente. O backend S3 compartilhado do Terraform permanece fora do destroy dos ambientes.
 
 Terraform mantém states e locks separados. Antes do apply, o workflow valida o módulo, salva o plano, bloqueia remoções e substituições e aplica exatamente o plano validado. Uma mudança bloqueada precisa de revisão e aprovação explícita em uma operação específica; a esteira não oferece um parâmetro para ignorar esse controle.
 
