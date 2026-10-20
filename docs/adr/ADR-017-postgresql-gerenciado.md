@@ -49,9 +49,9 @@ O banco gerenciado deve considerar:
 
 ## Proteção e retenção por ambiente
 
-A configuração de homolog prioriza o uso temporário para validação: retenção automática zero, sem proteção contra exclusão e sem snapshot final. A configuração de prod prioriza a preservação dos dados: retenção automática de sete dias, proteção contra exclusão e snapshot final.
+A política do projeto utiliza retenção automática zero e destroy sem snapshot final em homolog e prod. O destroy confirmado remove também snapshots manuais e backups retidos da instância correspondente ao ambiente, inclusive resíduos de execuções anteriores. A limpeza verifica a origem exata dos backups para não alcançar outro ambiente.
 
-Essa distinção reduz o custo do ambiente de validação e protege os dados de produção. Como consequência, o procedimento de remoção de homolog não pode ser considerado equivalente ao de prod. Os comandos, a preparação da instância e as limitações atuais da automação ficam no [guia operacional de infra-k8s](https://github.com/techdgconsulting/oficina-dgcar-infra-k8s/blob/homolog/README.md#provisionamento-completo) e no [guia do banco](https://github.com/techdgconsulting/oficina-dgcar-infra-db/blob/homolog/README.md).
+Prod mantém proteção contra exclusão durante a operação. O fluxo central de destroy exige confirmação manual e desativa essa proteção antes de destruir o banco. Ambos os ambientes sincronizam a política sem snapshot no state com plano completo e validação antes da exclusão. O backend S3 compartilhado do Terraform pertence ao controle da infraestrutura e permanece fora do destroy dos ambientes. Os procedimentos ficam no [guia operacional de infra-k8s](https://github.com/techdgconsulting/oficina-dgcar-infra-k8s/blob/homolog/README.md#provisionamento-completo) e no [guia do banco](https://github.com/techdgconsulting/oficina-dgcar-infra-db/blob/homolog/README.md).
 
 ## Consequencias Positivas
 

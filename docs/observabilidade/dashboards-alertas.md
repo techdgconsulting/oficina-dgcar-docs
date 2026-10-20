@@ -25,7 +25,7 @@ O inventário abaixo corresponde a `terraform/operational.tf`. Os filtros de apl
 | Throughput por minuto | Volume de requisições; `Transaction` | `rate(count(*), 1 minute)`, em requisições por minuto, em série temporal |
 | Erros HTTP por status | Distribuição de respostas de erro; `Transaction` | Contagem por `http.statusCode`, filtrando `numeric(http.statusCode) >= 400` |
 | Endpoints mais lentos | Comparação das transações; `Transaction` | p95 e média de `duration * 1000` em ms, mais contagem de requisições; agrupamento por `name`, limite de 20 grupos |
-| CPU por pod - consumo e limite (cores) | Uso e limite do container `oficina-api`; `K8sContainerSample` | `average(cpuUsedCores)` e `latest(cpuLimitCores)`, em cores, por pod e intervalo da série |
+| CPU por pod - consumo, alvo HPA e limite (cores) | Uso, alvo de referência do HPA e limite do container `oficina-api`; `K8sContainerSample` | Média `average(cpuUsedCores)`, máximo observado `max(cpuUsedCores)`, alvo `latest(cpuRequestedCores) * 0.7` e limite `latest(cpuLimitCores)`, em cores, por pod e intervalo |
 | Memoria por pod - consumo e limite (MiB) | Working set e limite do container `oficina-api`; `K8sContainerSample` | `average(memoryWorkingSetBytes) / 1048576` e `latest(memoryLimitBytes) / 1048576`, em MiB, por pod e intervalo |
 | Restarts por pod | Contador de reinicializações; `K8sContainerSample`, container `oficina-api` | `max(restartCount)` por pod, limite de 20 grupos. É o maior contador observado, não o incremento de reinicializações no período |
 | Falhas de OS ao longo do tempo | Evolução das falhas; `OficinaOsEvent` | Contagem de `FALHA_PROCESSAMENTO` em série temporal |
@@ -37,6 +37,10 @@ Os widgets de pods ativos e health externo usam `ignore_time_range = true`: suas
 Os demais widgets acompanham o período efetivo do dashboard; a tabela registra os `SINCE` explícitos das consultas. As consultas sem `SINCE` não fixam uma janela própria no Terraform. O uptime mede resultados recebidos do monitor, não disponibilidade anterior à sua criação nem intervalos sem verificações.
 
 As linhas de limite de CPU e memória vêm da telemetria do próprio container. Não usam valores fixos, requests ou capacidade total do nó. Se o limite estiver ausente na telemetria, a linha pode ficar ausente; isso não representa limite zero.
+
+A linha **Alvo HPA 70% (cores)** usa o request de CPU informado na telemetria, separado do limite. Com request de 250m e alvo de 70%, corresponde a **0,175 core**; o limite continua em **0,5 core**. O coeficiente de 70% corresponde à configuração do HPA do projeto e precisa acompanhar futuras alterações dessa configuração. A validação operacional compara o request e a referência com os pods e o HPA aplicado. Se faltar `cpuRequestedCores`, a linha pode ficar ausente.
+
+O máximo observado ajuda a identificar aumentos suavizados pela média do intervalo. Ele considera apenas as amostras recebidas pelo New Relic, sem recuperar picos não coletados. O HPA utiliza métricas do Metrics Server e suas regras de controle, incluindo tolerância e estabilização. Portanto, cruzar a linha de referência em um pod não comprova sozinho uma decisão de escala; confira também os eventos `SuccessfulRescale` e as réplicas prontas no Kubernetes.
 
 O dashboard **não contém grid de HPA nem card de pods desejados**. `FALHA_PROCESSAMENTO` inclui rejeições de negócio dos fluxos instrumentados, como HTTP 409 e 422; não representa exclusivamente erros internos 500.
 

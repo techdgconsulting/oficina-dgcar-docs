@@ -136,6 +136,46 @@ fields @timestamp, message, correlationId, level, reason, errorType
 
 A emissão de JSON no CloudWatch não comprova ingestão no New Relic. A configuração versionada analisada não contém agente, extensão ou encaminhamento dos logs da Lambda para o New Relic.
 
+## Evidência pela Collection no Bruno ou Postman
+
+A [Collection do Tech Challenge — Fase 3](https://github.com/techdgconsulting/oficina-dgcar-api/blob/homolog/postman/Oficina-DGCar-Tech-Challenge-Fase-3.postman_collection.json) inclui a pasta **Evidencia - Correlacao de logs e traces**, compatível com Bruno e Postman. Ela autentica um cliente e consulta uma OS existente duas vezes, enviando o mesmo `X-Correlation-Id` nas três chamadas. Não cria massa de negócio e pode ser utilizada em homolog ou prod, com os dados do ambiente escolhido.
+
+### Preparação e execução
+
+1. Importe a versão atualizada da Collection. Configure `baseUrl`, `cpfClienteValido`, `senhaClienteValida` e `numeroOrdemServico` nas variáveis da Collection ou do Environment. A OS precisa pertencer ao cliente informado.
+2. Execute a pasta inteira, em ordem, pelo Runner. Selecionar um Environment é opcional.
+3. **01 - Autenticar CPF e iniciar correlacao** executa `POST /auth/cpf`, gera `demoCorrelationId` com prefixo `demo-video-`, envia o header e captura o token Bearer retornado. O identificador aparece no console do executor, sem imprimir o token.
+4. **02 - Consultar OS com a mesma correlacao** executa `GET /api/ordens-servico/numero/{{numeroOrdemServico}}` com o token e o identificador do login.
+5. **03 - Repetir consulta para evidenciar outra execucao** repete a consulta com a mesma correlação.
+
+Os scripts validam HTTP 200 e a devolução do identificador nas respostas. Também verificam o token Bearer do login e se o número e o CPF da OS consultada correspondem aos valores configurados. A execução de HTTP não consulta automaticamente o CloudWatch ou o New Relic e, portanto, não comprova ingestão de telemetria.
+
+No Bruno, os scripts usam `bru`, `req` e `res`, com token, identificador e URL em variáveis de runtime da execução. No Postman, usam `pm`, armazenando esses dados nas variáveis da Collection. O login limpa o token anterior e as consultas verificam se a `baseUrl` continua igual à usada na autenticação. Ao trocar de ambiente, expirar o token ou iniciar uma nova execução no Bruno, execute novamente a pasta desde o login.
+
+### Localização das evidências
+
+| Evidência | Caminho e conferência |
+|---|---|
+| Identificador enviado | Console do Bruno ou Postman e header `X-Correlation-Id` das respostas |
+| Autenticação da Lambda | AWS Console, região `us-east-1`, CloudWatch, Logs, Log management, grupo `/aws/lambda/oficina-dgcar-<ambiente>-auth-cpf`. Selecione o período da execução, busque o identificador e expanda o JSON de `auth_cpf_success` para conferir `correlationId`, CPF mascarado e `clienteId`. Use um stream recente ou pesquise no grupo. |
+| Consultas da API | New Relic, Dashboards, `oficina-dgcar-<ambiente> - API e Kubernetes`. Mantenha **Pod** e **Nível do log** com `%`. Substitua `%` no campo **Correlation ID (logs)** pelo identificador completo, sem aspas, pressione Enter e atualize após a ingestão. |
+| Detalhes da execução | Abra um registro da API, obtenha `trace.id` e utilize o vínculo com o trace quando disponível, ou localize-o na área Distributed tracing da aplicação. Mostre os segmentos e os tempos efetivamente capturados. |
+
+Na tabela de logs da API, confira os dois registros `http_request_completed` da rota consultada, com HTTP 200, duração, `correlationId` e pod. Os traces das duas consultas podem ser distintos. A captura de traces depende da instrumentação e da amostragem; a presença de `trace.id` no log não substitui a abertura do trace para demonstrar seus detalhes. O filtro **Correlation ID (logs)** atua sobre os logs do dashboard e não altera os demais gráficos APM. Uma consulta da OS não modifica os indicadores de negócio.
+
+Para pesquisar sem os filtros adicionais do dashboard, substitua o identificador abaixo pelo gerado na execução:
+
+```sql
+FROM Log
+SELECT *
+WHERE correlationId = 'IDENTIFICADOR_GERADO'
+SINCE 30 minutes ago LIMIT 100
+```
+
+Se a consulta encontrar registros e o widget não, confira os filtros do dashboard. Se não encontrar registros, verifique se o header foi enviado também nas consultas da API, se o ambiente e o período correspondem à execução e se a ingestão ocorreu. O login isolado aparece no CloudWatch da Lambda; a configuração analisada envia os logs da API ao New Relic pelo coletor Kubernetes.
+
+O mesmo identificador no CloudWatch e no New Relic evidencia a correlação das chamadas. Isso não demonstra um trace distribuído contínuo entre Lambda e API.
+
 ## Correlação e rastreamento distribuído
 
 `correlationId` é um atributo usado para localizar registros relacionados. Se um cliente enviar o mesmo identificador em chamadas separadas à Lambda e à API, os componentes podem registrá-lo e devolvê-lo conforme suas regras de validação. Isso permite pesquisa pelo identificador, mas não cria automaticamente um trace distribuído.
