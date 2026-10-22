@@ -30,66 +30,64 @@ partition "CI / Pull Request" {
 
 if (Checks aprovados?) then (sim)
   partition "Revisao" {
-    :Revisao obrigatoria do Pull Request;
+    :Revisar PR conforme regras de homolog;\nRevisao obrigatoria nao configurada nessa branch;
     :Resolver comentarios;
     :Merge em homolog;
   }
 else (nao)
-  :Bloquear merge;
+  :Corrigir a PR e repetir as validacoes;
   stop
 endif
 
 partition "Deploy Homolog" {
-  :Merge dispara a validacao do componente;
-  :Solicitar atualizacao a fila central de homolog;
-  :Verificar SHA, ambiente e execucao pai;
-  :Carregar secrets do environment homolog;
-  :Build e publicacao de artefato;
-  if (Repositorio?) then (API)
-    :Build Maven e imagem Docker;
-    :Push da imagem no ECR;
-    :Deploy da aplicacao no EKS homolog;
-  elseif (Lambda)
-    :Testes Node.js;
-    :Empacotar Lambda;
-    :Publicar funcao Auth CPF + Senha em homolog;
-  elseif (Infra DB)
-    :Validar e salvar plano do RDS;
-    :Bloquear remocao ou substituicao antes do apply;
-  else (Infra K8s)
-    :Terraform plan/apply de EKS, ECR, Gateway e manifests homolog;
+  if (Mudanca relevante para deploy?) then (sim)
+    :Validar componente e solicitar atualizacao\nna fila central de homolog;
+    :Coordenador despacha worker com\norchestrated, parent_run_id e source_sha;
+    :Worker verifica SHA, branch, ambiente e execucao pai;\nCarregar secrets do environment homolog;
+    if (Componente?) then (API)
+      :Testar e gerar imagem Docker;\nPublicar no ECR;
+      :Workflow da API cria configuracoes e workloads;\nAguardar rollout no EKS homolog;
+    elseif (Lambda)
+      :Testar Node.js e publicar infraestrutura/pacote\nconforme modalidade solicitada;
+    elseif (Infra DB)
+      :Validar e salvar plano do RDS;\nBloquear remocao, substituicao ou plano incompleto;\nAplicar exatamente o plano validado;
+    else (Infra K8s)
+      :Exigir ambiente e integracoes existentes;\nValidar e salvar plano da plataforma;\nBloquear alteracoes destrutivas e aplicar plano;
+    endif
+    :Conferir resultado do worker e evidencias do componente;
+  else (nao)
+    :README, Postman e documentacao:\nsem apply ou deploy;
   endif
-  :Executar validacoes pos-deploy;
 }
 
 if (Homolog aprovado?) then (sim)
   partition "Promocao Para Producao" {
-    :Abrir Pull Request de homolog para main;
-    :Executar checks novamente;
-    :Revisao e aprovacao obrigatoria;
-    :Merge em main;
+    :Abrir PR de promocao para main;\nBranch de release deve preservar historico de homolog;
+    :Executar checks e verificar historico de homolog;
+    :Main protegida, inclusive para administradores;\nExigir uma aprovacao de outra conta;
+    :Squash and merge em main;\nSem commits diretos;
   }
 else (nao)
   :Corrigir em nova branch e repetir ciclo;
   stop
 endif
 
-partition "GitHub Environment prod" {
-  if (Environment exige aprovacao?) then (sim)
-    :Aguardar aprovadores autorizados;
+partition "Deploy Producao" {
+  if (Mudanca relevante para deploy?) then (sim)
+    :Validar e enviar pedido a fila central de prod;
+    if (Environment exige aprovacao?) then (sim)
+      :Aguardar aprovacao do environment;\nControle separado da revisao da PR;
+    endif
+    :Autorizar worker, commit e execucao pai;\nCarregar secrets e variaveis de prod;
+    :Executar componente com o SHA validado de main;\nMesmas responsabilidades e protecoes de homolog;
+    :Registrar resultado e evidencias no GitHub Actions;
   else (nao)
-    :Prosseguir automaticamente;
+    :Atualizacao documental sem apply ou deploy;
   endif
-  :Carregar secrets e variaveis de prod;
 }
 
-partition "Deploy Producao" {
-  :Merge dispara pedido a fila central de prod;
-  :Executar componente com parametros e SHA de prod;
-  :Publicar artefato ou aplicar Terraform em prod;
-  :Executar validacoes pos-deploy;
-  :Registrar evidencias de execucao no GitHub Actions;
-}
+:Fila unica por ambiente para atualizacoes,\nprovisionamento, manutencao e destroy;\nNao cancela execucao ativa nem garante ordem cronologica;
+:Ambiente ausente exige provisionamento completo manual;\nAtualizacao isolada nao recria o ambiente;
 
 stop
 @enduml
